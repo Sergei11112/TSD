@@ -52,8 +52,8 @@ def employees_page(request: Request, q: str = "", db: Session = Depends(get_db))
     if q.isdigit():
         edit = db.get(Employee, int(q))
     users = db.query(User).order_by(User.username).all()
-    return templates.TemplateResponse("employees.html", {
-        "request": request, "user": u, "items": emps, "per_emp": per_emp,
+    return templates.TemplateResponse(request, "employees.html", {
+        "user": u, "items": emps, "per_emp": per_emp,
         "q": "" if edit else q, "edit": edit, "users": users,
         "app_title": "WMS Управление складом", "active": "employees"})
 
@@ -93,8 +93,8 @@ def employee_card(request: Request, eid: int, db: Session = Depends(get_db)):
     history = (db.query(StockMovement).filter_by(employee_id=eid)
                .order_by(StockMovement.created_at.desc()).limit(300).all())
     assets = db.query(AssetInstance).filter_by(employee_id=eid, status="issued").all()
-    return templates.TemplateResponse("employee_card.html", {
-        "request": request, "user": u, "emp": emp, "open_items": open_items,
+    return templates.TemplateResponse(request, "employee_card.html", {
+        "user": u, "emp": emp, "open_items": open_items,
         "history": history, "assets": assets,
         "app_title": "WMS Управление складом", "active": "employees"})
 
@@ -111,8 +111,8 @@ def tasks_page(request: Request, status: str = "", q: str = "", db: Session = De
     if q:
         query = query.filter((Task.number.ilike(f"%{q}%")) | (Task.notes.ilike(f"%{q}%")))
     tasks = query.order_by(Task.created_at.desc()).limit(300).all()
-    return templates.TemplateResponse("tasks.html", {
-        "request": request, "user": u, "items": tasks, "status": status, "q": q,
+    return templates.TemplateResponse(request, "tasks.html", {
+        "user": u, "items": tasks, "status": status, "q": q,
         "status_names": STATUS_NAMES, "app_title": "WMS Управление складом",
         "active": "tasks"})
 
@@ -141,8 +141,8 @@ def _task_form_ctx(request, u, db, new=True, task=None):
         .order_by(Employee.full_name).all()  # noqa: E712
     noms = db.query(Nomenclature).filter(Nomenclature.is_active == True) \
         .order_by(Nomenclature.name).all()  # noqa: E712
-    return templates.TemplateResponse("task_form.html", {
-        "request": request, "user": u, "task": task, "employees": emps, "noms": noms,
+    return templates.TemplateResponse(request, "task_form.html", {
+        "user": u, "task": task, "employees": emps, "noms": noms,
         "cells": _cells(db), "actions": ACTION_NAMES, "assets": db.query(AssetInstance)
         .order_by(AssetInstance.serial_number).all(),
         "boxes": db.query(Box).filter(Box.is_active == True).order_by(Box.code).all(),  # noqa: E712
@@ -245,8 +245,8 @@ def task_detail(request: Request, tid: int, error: str = "", db: Session = Depen
     scans = (db.query(TaskScan).filter_by(task_id=tid)
              .order_by(TaskScan.created_at.desc()).limit(100).all())
     docs = db.query(Document).filter_by(task_id=tid).all()
-    return templates.TemplateResponse("task_detail.html", {
-        "request": request, "user": u, "t": t, "scans": scans, "docs": docs,
+    return templates.TemplateResponse(request, "task_detail.html", {
+        "user": u, "t": t, "scans": scans, "docs": docs,
         "actions": ACTION_NAMES, "status_names": STATUS_NAMES, "error": error,
         "app_title": "WMS Управление складом", "active": "tasks"})
 
@@ -266,8 +266,8 @@ def documents_page(request: Request, typ: str = "", status: str = "", q: str = "
     if q:
         query = query.filter(Document.number.ilike(f"%{q}%"))
     docs = query.order_by(Document.created_at.desc()).limit(300).all()
-    return templates.TemplateResponse("documents.html", {
-        "request": request, "user": u, "items": docs, "typ": typ, "status": status,
+    return templates.TemplateResponse(request, "documents.html", {
+        "user": u, "items": docs, "typ": typ, "status": status,
         "q": q, "doc_types": DOC_TYPE_NAMES, "status_names": STATUS_NAMES,
         "app_title": "WMS Управление складом", "active": "documents"})
 
@@ -282,8 +282,8 @@ def document_detail(request: Request, did: int, db: Session = Depends(get_db)):
         return RedirectResponse("/documents", status_code=303)
     moves = (db.query(StockMovement).filter_by(document_id=did)
              .order_by(StockMovement.id).all())
-    return templates.TemplateResponse("document_detail.html", {
-        "request": request, "user": u, "doc": doc, "moves": moves,
+    return templates.TemplateResponse(request, "document_detail.html", {
+        "user": u, "doc": doc, "moves": moves,
         "doc_types": DOC_TYPE_NAMES, "status_names": STATUS_NAMES,
         "app_title": "WMS Управление складом", "active": "documents"})
 
@@ -351,7 +351,7 @@ def reports_page(request: Request, report: str = "movements",
         ctx["items"] = q.order_by(IssuedItem.issued_at.desc()).limit(500).all()
     else:
         ctx["todo"] = True
-    return templates.TemplateResponse("reports.html", ctx)
+    return templates.TemplateResponse(request, "reports.html", ctx)
 
 
 def _parse_date(s: str, end: bool = False):

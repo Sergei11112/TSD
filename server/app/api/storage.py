@@ -52,8 +52,8 @@ def locations_page(request: Request, sel: int | None = None, db: Session = Depen
                   .join(Nomenclature, Nomenclature.id == AssetInstance.nomenclature_id)
                   .filter(AssetInstance.location_id.in_(ids)).all())
     parents = {l.id: l.parent_id for l in locs}
-    return templates.TemplateResponse("locations.html", {
-        "request": request, "user": u, "roots": roots, "by_parent": by_parent,
+    return templates.TemplateResponse(request, "locations.html", {
+        "user": u, "roots": roots, "by_parent": by_parent,
         "selected": selected, "stock_rows": stock_rows, "boxes_list": boxes_list,
         "assets": assets, "loc_types": LOC_TYPES, "parents": parents,
         "all_locs": locs, "path": full_path(selected) if selected else "",
@@ -150,8 +150,8 @@ def boxes_page(request: Request, q: str = "", loc_id: int | None = None,
     cells = db.query(Location).filter(Location.type == "cell").order_by(Location.code).all()
     noms = db.query(Nomenclature).filter(Nomenclature.is_active == True).order_by(Nomenclature.name).all()  # noqa: E712
     edit = db.get(Box, int(q)) if q.isdigit() else None
-    return templates.TemplateResponse("boxes.html", {
-        "request": request, "user": u, "items": items, "q": "" if edit else q,
+    return templates.TemplateResponse(request, "boxes.html", {
+        "user": u, "items": items, "q": "" if edit else q,
         "cells": cells, "noms": noms, "edit": edit, "loc_id": loc_id or "",
         "app_title": "WMS Управление складом", "active": "boxes"})
 
@@ -314,8 +314,8 @@ def stock_page(request: Request, typ: str = "", loc_id: int | None = None, q: st
     cells = db.query(Location).filter(Location.type == "warehouse").order_by(Location.code).all()
     _, by_parent = _tree(db)
     all_locs = db.query(Location).order_by(Location.code).all()
-    return templates.TemplateResponse("stock.html", {
-        "request": request, "user": u, "rows": rows, "typ": typ, "q": q, "sort": sort,
+    return templates.TemplateResponse(request, "stock.html", {
+        "user": u, "rows": rows, "typ": typ, "q": q, "sort": sort,
         "loc_id": loc_id or "", "warehouses": all_locs, "by_parent": by_parent,
         "loc_name": db.get(Location, loc_id).name if loc_id else "",
         "app_title": "WMS Управление складом", "active": "stock"})

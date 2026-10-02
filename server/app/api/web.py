@@ -2,7 +2,7 @@
 import os
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -13,7 +13,14 @@ from ..config import SESSION_COOKIE_NAME, SESSION_MAX_AGE, APP_TITLE
 
 router = APIRouter(tags=["web"])
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates")
+STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
+
+@router.get("/terminal", include_in_schema=False)
+def terminal_page():
+    """Экран ТСД (тонкий клиент): WebView-обёртка открывает этот адрес."""
+    return FileResponse(os.path.join(STATIC_DIR, "terminal.html"))
 
 
 def redir_login():
@@ -38,7 +45,7 @@ def require_role(request: Request, db: Session, roles=("admin", "controller")):
 
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, error: str = ""):
-    return templates.TemplateResponse("login.html", {"request": request, "error": error,
+    return templates.TemplateResponse(request, "login.html", {"error": error,
                                                      "app_title": APP_TITLE})
 
 
@@ -76,7 +83,6 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     }
     recent_docs = db.query(Document).order_by(Document.created_at.desc()).limit(10).all()
     recent_tasks = db.query(Task).order_by(Task.created_at.desc()).limit(10).all()
-    return templates.TemplateResponse("dashboard.html",
-                                      {"request": request, "user": u, "stats": stats,
+    return templates.TemplateResponse(request, "dashboard.html", {"user": u, "stats": stats,
                                        "recent_docs": recent_docs, "recent_tasks": recent_tasks,
                                        "app_title": APP_TITLE, "active": "dashboard"})

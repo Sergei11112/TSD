@@ -40,8 +40,8 @@ def nomenclature_list(request: Request, q: str = "", typ: str = "", only_active:
     col = {"name": Nomenclature.name, "sku": Nomenclature.sku, "type": Nomenclature.type}.get(
         sort, Nomenclature.name)
     items = query.order_by(col).all()
-    return templates.TemplateResponse("nomenclature_list.html", {
-        "request": request, "user": u, "items": items, "q": q, "typ": typ,
+    return templates.TemplateResponse(request, "nomenclature_list.html", {
+        "user": u, "items": items, "q": q, "typ": typ,
         "only_active": only_active, "sort": sort, "app_title": "WMS Управление складом",
         "active": "nomenclature"})
 
@@ -78,7 +78,7 @@ def nomenclature_card(request: Request, nid: int, tab: str = "main", msg: str = 
     elif tab == "history":
         ctx["moves"] = (db.query(StockMovement).filter_by(nomenclature_id=nid)
                         .order_by(StockMovement.created_at.desc()).limit(200).all())
-    return templates.TemplateResponse("nomenclature_card.html", ctx)
+    return templates.TemplateResponse(request, "nomenclature_card.html", ctx)
 
 
 # ------------------------------------------------------------------ создание/редактирование
@@ -87,8 +87,8 @@ def nomenclature_new(request: Request, db: Session = Depends(get_db)):
     u = require_role(request, db, ROLE)
     if not u:
         return redir_login()
-    return templates.TemplateResponse("nomenclature_form.html", {
-        "request": request, "user": u, "n": None, "form": {}, "error": "",
+    return templates.TemplateResponse(request, "nomenclature_form.html", {
+        "user": u, "n": None, "form": {}, "error": "",
         "units": _units(db), "app_title": "WMS Управление складом", "active": "nomenclature"})
 
 
@@ -107,8 +107,8 @@ async def nomenclature_save(request: Request, db: Session = Depends(get_db)):
     if not err and dup and dup.id != nid:
         err = f"Артикул «{sku}» уже используется"
     if err:
-        return templates.TemplateResponse("nomenclature_form.html", {
-            "request": request, "user": u, "n": db.get(Nomenclature, nid) if nid else None,
+        return templates.TemplateResponse(request, "nomenclature_form.html", {
+            "user": u, "n": db.get(Nomenclature, nid) if nid else None,
             "form": f, "error": err, "units": _units(db),
             "app_title": "WMS Управление складом", "active": "nomenclature"}, status_code=400)
     obj = db.get(Nomenclature, nid) if nid else Nomenclature()
@@ -132,8 +132,8 @@ def nomenclature_edit(request: Request, nid: int, db: Session = Depends(get_db))
     n = db.get(Nomenclature, nid)
     if not n:
         return RedirectResponse("/nomenclature", status_code=303)
-    return templates.TemplateResponse("nomenclature_form.html", {
-        "request": request, "user": u, "n": n, "form": {}, "error": "",
+    return templates.TemplateResponse(request, "nomenclature_form.html", {
+        "user": u, "n": n, "form": {}, "error": "",
         "units": _units(db), "app_title": "WMS Управление складом", "active": "nomenclature"})
 
 
@@ -251,8 +251,8 @@ def units_page(request: Request, db: Session = Depends(get_db)):
     if not u:
         return redir_login()
     items = _units(db)
-    return templates.TemplateResponse("units.html", {
-        "request": request, "user": u, "items": items,
+    return templates.TemplateResponse(request, "units.html", {
+        "user": u, "items": items,
         "counts": {un.id: db.query(Nomenclature).filter_by(unit_id=un.id).count()
                    for un in items},
         "app_title": "WMS Управление складом", "active": "units"})
