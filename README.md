@@ -44,6 +44,19 @@ C:\wms\wms-start.bat
 открывает порт 8000 в брандмауэре и добавляет ярлыки в меню «Пуск».
 Автозапуск при старте Windows (аналог systemd): `deploy\windows\autostart_register.bat`.
 
+## Развёртывание на macOS (Intel / Apple Silicon M1–M4) — см. deploy/macos/README.md
+
+```bash
+git clone https://github.com/Sergei11112/TSD.git ~/wms && cd ~/wms
+bash deploy/macos/install.sh
+./wms-start.command        # двойным кликом тоже можно
+```
+
+Скрипт создаст venv, установит зависимости, сгенерирует базу SQLite с
+демо-данными и файлы `wms-start.command` / `wms-stop.command`.
+Вход: http://localhost:8000 , admin / admin123. ТСД обращаются к Mac по его
+Wi-Fi IP: `http://IP-МАКА:8000`.
+
 ## ТСД
 1. Соберите APK: `cd tcd-android && ./gradlew assembleDebug` (Android Studio тоже подходит, minSdk 23).
 2. Установите на ТСД, в «Настройках» укажите `http://IP_СЕРВЕРА:8000`.
