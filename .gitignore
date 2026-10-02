@@ -1,1 +1,5 @@
 (empty)
+# Windows
+venv/
+*.lnk
+server/data/wms.log
