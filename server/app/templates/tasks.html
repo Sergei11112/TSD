@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Задания — {{ app_title }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Задания для ТСД</h1></div>
+<div class="toolbar">
+  <a class="btn btn-primary" href="/tasks/new">➕ Создать задание</a>
+  <form method="get" style="display:flex;gap:8px">
+    <input type="text" name="q" placeholder="Номер / примечание" value="{{ q }}" style="width:200px">
+    <select name="status">
+      <option value="">Все статусы</option>
+      {% for k, v in status_names.items() if k not in ('posted','pending','error') %}
+      <option value="{{ k }}" {% if status==k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+    </select>
+    <button class="btn">Найти</button><a class="btn" href="/tasks">Сброс</a>
+  </form>
+</div>
+<div class="panel">
+<table class="grid">
+  <tr><th>Номер</th><th>Статус</th><th>Сотрудник</th><th class="num">Строк</th><th class="num">Выполнено</th><th>Создан</th><th>Примечание</th></tr>
+  {% for t in items %}
+  {% set done = t.lines | selectattr('status','equalto','completed') | list | length %}
+  <tr class="clickable" onclick="location='/tasks/{{ t.id }}'">
+    <td><b>{{ t.number }}</b></td>
+    <td>{% if t.status=='draft' %}<span class="badge gray">Черновик</span>
+        {% elif t.status=='sent' %}<span class="badge blue">Отправлено</span>
+        {% elif t.status=='in_progress' %}<span class="badge orange">В работе</span>
+        {% elif t.status=='completed' %}<span class="badge green">Выполнено</span>
+        {% else %}<span class="badge red">Отменено</span>{% endif %}</td>
+    <td>{{ t.employee.full_name if t.employee else '—' }}</td>
+    <td class="num">{{ t.lines|length }}</td>
+    <td class="num">{{ done }} / {{ t.lines|length }}</td>
+    <td>{{ t.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+    <td class="muted">{{ t.notes[:60] }}</td>
+  </tr>
+  {% else %}<tr><td colspan="7" class="muted center">Заданий нет</td></tr>{% endfor %}
+</table>
+</div>
+{% endblock %}
+{% block status_right %}Заданий в журнале: {{ items|length }}{% endblock %}

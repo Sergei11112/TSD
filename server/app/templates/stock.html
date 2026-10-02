@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Остатки — {{ app_title }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Остатки ТМЦ</h1></div>
+<div class="toolbar">
+  <form method="get" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <input type="text" name="q" placeholder="Поиск наименования / артикула" value="{{ q }}" style="width:240px">
+    <select name="typ">
+      <option value="">Все типы</option>
+      <option value="consumable" {% if typ=='consumable' %}selected{% endif %}>Расходные</option>
+      <option value="asset" {% if typ=='asset' %}selected{% endif %}>Оборудование</option>
+    </select>
+    <select name="loc_id">
+      <option value="">Все места хранения</option>
+      {% for l in warehouses %}<option value="{{ l.id }}" {% if loc_id==l.id %}selected{% endif %}>{{ l.code }} · {{ l.name }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-primary">Применить</button>
+    <a class="btn" href="/stock">Сброс</a>
+  </form>
+</div>
+<div class="panel">
+<table class="grid">
+  <tr>
+    <th><a href="?sort=name&q={{q}}&typ={{typ}}&loc_id={{loc_id}}">Наименование</a></th>
+    <th><a href="?sort=sku&q={{q}}&typ={{typ}}&loc_id={{loc_id}}">Артикул</a></th>
+    <th>Тип</th><th>Ед.</th>
+    <th class="num"><a href="?sort=total&q={{q}}&typ={{typ}}&loc_id={{loc_id}}">Числится всего</a></th>
+    <th class="num"><a href="?sort=wh&q={{q}}&typ={{typ}}&loc_id={{loc_id}}">На складе</a></th>
+    <th class="num">В работе</th><th class="num">Резерв</th><th class="num">Свободно</th>
+  </tr>
+  {% for r in rows %}
+  <tr class="clickable" onclick="location='/nomenclature/{{ r.n.id }}?tab=stock'">
+    <td>{{ r.n.name }}</td>
+    <td><code>{{ r.n.sku }}</code></td>
+    <td>{% if r.n.type=='asset' %}<span class="badge purple">Оборуд.</span>{% else %}<span class="badge blue">Расход.</span>{% endif %}</td>
+    <td>{{ r.n.unit.code if r.n.unit else '—' }}</td>
+    <td class="num"><b>{{ '%g'|format(r.total) }}</b></td>
+    <td class="num">{{ '%g'|format(r.wh) }}</td>
+    <td class="num">{% if r.work %}<span style="color:#e67e22">{{ '%g'|format(r.work) }}</span>{% else %}0{% endif %}</td>
+    <td class="num">{{ '%g'|format(r.reserved) }}</td>
+    <td class="num">{% if r.free < 0 %}<span style="color:#e74c3c">{{ '%g'|format(r.free) }}</span>{% else %}{{ '%g'|format(r.free) }}{% endif %}</td>
+  </tr>
+  {% else %}<tr><td colspan="9" class="muted center">Нет данных по фильтрам</td></tr>{% endfor %}
+</table>
+</div>
+{% endblock %}
+{% block status_right %}Позиций: {{ rows|length }}{% endblock %}

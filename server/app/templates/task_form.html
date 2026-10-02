@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}{% if task %}Задание {{ task.number }}{% else %}Новое задание{% endif %}{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="/tasks">Задания</a> › {% if task %}{{ task.number }} (редактирование){% else %}создание{% endif %}</div>
+<div class="page-head"><h1>{% if task %}Редактирование задания {{ task.number }}{% else %}Новое задание для ТСД{% endif %}</h1></div>
+{% if request.query_params.get('error')=='nolines' %}<div class="flash err">⛔ Нельзя отправить задание без строк</div>{% endif %}
+
+<form method="post" action="/tasks/save" id="task_form">
+<input type="hidden" name="id" value="{{ task.id if task else '' }}">
+<input type="hidden" name="removed_lines" id="removed_lines" value="">
+<div class="panel"><div class="panel-head">Шапка документа</div>
+<table class="grid form-table" style="border:none">
+  <tr><td style="width:200px;background:#f7f9fb">Сотрудник (кому выдаём / кто возвращает)</td>
+      <td><select name="employee_id"><option value="">— не указан —</option>
+        {% for e in employees %}<option value="{{ e.id }}" {% if task and task.employee_id==e.id %}selected{% endif %}>{{ e.full_name }}{% if e.department %} · {{ e.department }}{% endif %}</option>{% endfor %}
+      </select></td></tr>
+  <tr><td style="background:#f7f9fb">Примечание</td>
+      <td><input type="text" name="notes" style="width:560px" value="{{ task.notes if task else '' }}" placeholder="Например: наряд-задание №45, до конца смены"></td></tr>
+</table></div>
+
+<div class="panel">
+  <div class="panel-head" style="display:flex;align-items:center">Табличная часть — операции
+    <button type="button" class="btn btn-sm btn-primary" style="margin-left:auto" onclick="addLine()">➕ Строка</button>
+  </div>
+  <table class="grid" id="lines_table">
+    <tr><th style="width:28px">#</th><th>Операция</th><th>Номенклатура</th><th>Кол-во</th>
+        <th>Место (ячейка)</th><th>Экземпляр / режим</th><th></th></tr>
+  </table>
+  <div class="muted small" style="padding:8px 12px">
+    Порядок сканирования на ТСД: сначала <b>место хранения</b>, затем товар/коробка/экземпляр.
+    Частичное выполнение строк запрещено. После закрытия всех строк документ проводится автоматически.
+  </div>
+</div>
+
+<div class="toolbar">
+  <button class="btn btn-success" name="send" value="" onclick="setSend(this)">💾 Записать черновик</button>
+  <button class="btn btn-primary" name="send" value="1" onclick="setSend(this)">📤 Записать и отправить на ТСД</button>
+  <a class="btn" href="/tasks">Отмена</a>
+</div>
+</form>
+
+<template id="row_tpl">
+<tr class="tl">
+  <td class="center idx"></td>
+  <td><select name="" class="a_action" onchange="onAction(this)" required>
+    {% for k,v in actions.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}
+  </select></td>
+  <td><select name="" class="a_nom" required>
+    <option value="">— выберите —</option>
+    {% for nom in noms %}<option value="{{ nom.id }}" data-type="{{ nom.type }}">{{ nom.name }} [{{ nom.sku }}]</option>{% endfor %}
+  </select></td>
+  <td><input type="number" step="any" min="0.001" name="" class="a_qty" value="1" style="width:80px" required></td>
+  <td><select name="" class="a_loc">
+    <option value="">— без места —</option>
+    {% for c in cells %}<option value="{{ c.id }}">{{ c.code }}</option>{% endfor %}
+  </select></td>
+  <td class="a_assetcell">
+    <label><input type="radio" name="" class="a_mode" value="specific" checked onchange="onMode(this)"> конкретный:</label>
+    <select name="" class="a_asset">
+      <option value="">— выберите экземпляр —</option>
+      {% for a in assets %}<option value="{{ a.id }}" data-nom="{{ a.nomenclature_id }}" data-status="{{ a.status }}">{{ a.serial_number }}</option>{% endfor %}
+    </select>
+    &nbsp;<label><input type="radio" name="" class="a_mode" value="any" onchange="onMode(this)"> любой доступный</label>
+  </td>
+  <td><button type="button" class="btn btn-sm btn-danger" onclick="delLine(this)">✕</button>
+      <input type="hidden" name="tl_line_id" class="a_id"></td>
+</tr>
+</template>
+
+<script>
+let lineSeq = 0;
+const removed = [];
+function renumber(){
+  document.querySelectorAll('#lines_table .tl').forEach((tr,i)=>{
+    tr.querySelector('.idx').textContent = i+1;
+    tr.querySelectorAll('select,input').forEach(el=>{
+      const cls = el.className.split(' ')[0].replace('a_','');
+      if(cls && !el.name.startsWith('tl_line')) el.name = 'tl_'+cls+'_'+i;
+    });
+  });
+  document.getElementById('removed_lines').value = removed.join(',');
+}
+function addLine(data){
+  data = data || {};
+  const tpl = document.getElementById('row_tpl');
+  const tr = tpl.content.firstElementChild.cloneNode(true);
+  document.getElementById('lines_table').appendChild(tr);
+  if(data.id){ tr.querySelector('.a_id').value = data.id; }
+  if(data.action){ tr.querySelector('.a_action').value = data.action; }
+  if(data.nom){ tr.querySelector('.a_nom').value = data.nom; }
+  if(data.qty){ tr.querySelector('.a_qty').value = data.qty; }
+  if(data.loc){ tr.querySelector('.a_loc').value = data.loc; }
+  if(data.mode==='any'){ tr.querySelectorAll('.a_mode')[1].checked = true; }
+  if(data.asset){ tr.querySelector('.a_asset').value = data.asset; }
+  onAction(tr.querySelector('.a_action')); renumber();
+}
+function delLine(btn){
+  const tr = btn.closest('tr');
+  const id = tr.querySelector('.a_id').value;
+  if(id) removed.push(id);
+  tr.remove(); renumber();
+}
+function isAsset(nomSel){ return nomSel.selectedOptions[0] && nomSel.selectedOptions[0].dataset.type==='asset'; }
+function onAction(sel){
+  const tr = sel.closest('tr');
+  const assetOp = ['ISSUE_ASSET','RETURN_ASSET','FINAL_WRITEOFF'].includes(sel.value);
+  tr.querySelector('.a_assetcell').style.display = assetOp ? '' : 'none';
+  if(!assetOp){ tr.querySelectorAll('.a_mode')[0].checked = true; }
+}
+function onMode(radio){
+  const tr = radio.closest('tr');
+  tr.querySelector('.a_asset').disabled = tr.querySelectorAll('.a_mode')[1].checked;
+}
+function setSend(btn){ /* значение в name=send уже в кнопке */ }
+// существующие строки при редактировании
+{% if task %}{% for l in task.lines %}
+addLine({id:'{{ l.id }}', action:'{{ l.action_type }}', nom:'{{ l.nomenclature_id }}',
+         qty:'{{ '%g'|format(l.required_qty) }}', loc:'{{ l.location_id or '' }}',
+         mode:'{{ l.asset_mode }}', asset:'{{ l.asset_instance_id or '' }}'});
+{% endfor %}{% endif %}
+if(document.querySelectorAll('#lines_table .tl').length===0) addLine();
+renumber();
+</script>
+{% endblock %}

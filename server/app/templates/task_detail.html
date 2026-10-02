@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Задание {{ t.number }}{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="/tasks">Задания</a> › {{ t.number }}</div>
+<div class="page-head">
+  <h1>Задание {{ t.number }}</h1>
+  {% if t.status=='draft' %}<span class="badge gray">Черновик</span>
+  {% elif t.status=='sent' %}<span class="badge blue">Отправлено на ТСД</span>
+  {% elif t.status=='in_progress' %}<span class="badge orange">Выполняется</span>
+  {% elif t.status=='completed' %}<span class="badge green">Выполнено</span>
+  {% else %}<span class="badge red">Отменено</span>{% endif %}
+  <span style="flex:1"></span>
+  {% if t.status=='draft' %}
+    <a class="btn" href="/tasks/{{ t.id }}/edit">✏ Редактировать</a>
+    <form class="inline-form" method="post" action="/tasks/{{ t.id }}/send"><button class="btn btn-primary">📤 Отправить на ТСД</button></form>
+  {% endif %}
+  {% if t.status in ('draft','sent','in_progress') %}
+    <form class="inline-form" method="post" action="/tasks/{{ t.id }}/cancel" onsubmit="return confirm('Отменить задание?')">
+      <button class="btn btn-danger">✕ Отменить</button></form>
+  {% endif %}
+</div>
+{% if error=='nolines' %}<div class="flash err">⛔ Задание без строк отправить нельзя</div>{% endif %}
+
+<table class="grid mb" style="width:auto;background:#fff;border:1px solid #d0d0d0">
+  <tr><td class="muted" style="padding:4px 10px">Сотрудник</td><td style="padding:4px 10px">{{ t.employee.full_name if t.employee else '—' }}</td>
+      <td class="muted" style="padding:4px 10px">Создал</td><td style="padding:4px 10px">{{ t.created_by_user.username if t.created_by_user else '—' }}</td></tr>
+  <tr><td class="muted" style="padding:4px 10px">Создано</td><td style="padding:4px 10px">{{ t.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+      <td class="muted" style="padding:4px 10px">Отправлено</td><td style="padding:4px 10px">{{ t.sent_at.strftime('%d.%m.%Y %H:%M') if t.sent_at else '—' }}</td></tr>
+  <tr><td class="muted" style="padding:4px 10px">Примечание</td><td colspan="3" style="padding:4px 10px">{{ t.notes or '—' }}</td></tr>
+</table>
+
+<div class="panel"><div class="panel-head">Строки задания (мониторинг выполнения)</div>
+<table class="grid">
+  <tr><th>#</th><th>Операция</th><th>Номенклатура</th><th>Экземпляр</th><th>Место</th>
+      <th class="num">Требуется</th><th class="num">Отсканировано</th><th>Статус</th></tr>
+  {% for l in t.lines %}
+  <tr>
+    <td>{{ loop.index }}</td>
+    <td>{{ actions[l.action_type] if l.action_type in actions else l.action_type }}</td>
+    <td><a href="/nomenclature/{{ l.nomenclature_id }}">{{ l.nomenclature.name }}</a></td>
+    <td>{% if l.asset_instance %}<code>{{ l.asset_instance.serial_number }}</code>{% elif l.asset_mode=='any' %}<span class="muted">любой</span>{% else %}—{% endif %}</td>
+    <td>{{ l.location.code if l.location else '—' }}</td>
+    <td class="num">{{ '%g'|format(l.required_qty) }}</td>
+    <td class="num">{% if l.scanned_qty == l.required_qty %}<b style="color:#27ae60">{{ '%g'|format(l.scanned_qty) }}</b>
+        {% elif l.scanned_qty %}<b style="color:#e67e22">{{ '%g'|format(l.scanned_qty) }}</b>
+        {% else %}0{% endif %}</td>
+    <td>{% if l.status=='completed' %}<span class="badge green">✔ Выполнено</span>
+        {% elif l.status=='error' %}<span class="badge red">Ошибка</span>
+        {% else %}<span class="badge gray">Ожидает</span>{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table></div>
+
+{% if docs %}
+<div class="panel"><div class="panel-head">Проведённые документы по заданию</div>
+<table class="grid">
+  <tr><th>Номер</th><th>Тип</th><th>Статус</th><th>Дата проведения</th></tr>
+  {% for d in docs %}
+  <tr class="clickable" onclick="location='/documents/{{ d.id }}'">
+    <td><b>{{ d.number }}</b></td><td>{{ d.type if d.type in doc_types else d.type }}</td>
+    <td>{% if d.status=='posted' %}<span class="badge green">Проведён</span>{% else %}<span class="badge red">Отменён</span>{% endif %}</td>
+    <td>{{ d.posted_at.strftime('%d.%m.%Y %H:%M') if d.posted_at else '—' }}</td>
+  </tr>
+  {% endfor %}
+</table></div>
+{% endif %}
+
+<div class="panel"><div class="panel-head">Журнал сканирований (последние 100)</div>
+<table class="grid">
+  <tr><th>Время</th><th>Код</th><th>Результат</th><th>Причина ошибки</th><th>Устройство</th></tr>
+  {% for s in scans %}
+  <tr>
+    <td>{{ s.created_at.strftime('%d.%m.%Y %H:%M:%S') }}</td>
+    <td><code>{{ s.scanned_code[:48] }}</code></td>
+    <td>{% if s.result=='ok' %}<span class="badge green">OK</span>{% else %}<span class="badge red">ОШИБКА</span>{% endif %}</td>
+    <td class="{{ 'muted' if not s.error_reason }}">{{ s.error_reason or '' }}</td>
+    <td class="muted small">{{ s.device_id }}</td>
+  </tr>
+  {% else %}<tr><td colspan="5" class="muted center">Сканирований ещё не было</td></tr>{% endfor %}
+</table></div>
+{% endblock %}
+{% block status_right %}Строк: {{ t.lines|length }} · Выполнено: {{ t.lines | selectattr('status','equalto','completed') | list | length }}{% endblock %}

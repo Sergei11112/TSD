@@ -1,0 +1,6 @@
+<resources>
+    <style name="Theme.WmsTcd" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="colorPrimary">#2c3e50</item>
+        <item name="colorAccent">#3498db</item>
+    </style>
+</resources>

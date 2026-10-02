@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width:380px;margin:60px auto">
+  <div class="panel">
+    <div class="panel-head">Вход в систему WMS</div>
+    <div style="padding:16px">
+      {% if error %}<div class="flash err">{{ error }}</div>{% endif %}
+      <form method="post" action="/login">
+        <table class="form-table" width="100%">
+          <tr><td width="90">Пользователь:</td><td><input type="text" name="username" autofocus style="width:100%"></td></tr>
+          <tr><td>Пароль:</td><td><input type="password" name="password" style="width:100%"></td></tr>
+        </table>
+        <div class="right mt"><button class="btn btn-primary" type="submit">Войти</button></div>
+      </form>
+      <p class="muted small mt">Доступ только из локальной сети. Демо-вход: admin / admin123</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>WMS ТСД</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: Roboto, Arial, sans-serif; }
+body { background: #f0f0f0; color: #222; font-size: 17px; }
+.header { background: #2c3e50; color: #fff; padding: 14px; display: flex; align-items: center; }
+.header .ttl { font-size: 19px; font-weight: bold; flex: 1; }
+.header .back { color: #aed6f1; font-size: 17px; text-decoration: none; padding: 6px 10px; }
+.screen { display: none; padding: 14px; }
+.screen.active { display: block; }
+.btn { display: block; width: 100%; padding: 16px; margin: 8px 0; border: none; border-radius: 6px;
+       font-size: 19px; background: #3498db; color: #fff; cursor: pointer; }
+.btn.green { background: #27ae60; } .btn.red { background: #e74c3c; } .btn.gray { background: #95a5a6; }
+.user-card { background: #fff; border: 1px solid #d0d0d0; border-radius: 8px; padding: 18px;
+             margin: 10px 0; font-size: 20px; cursor: pointer; }
+.user-card.sel { outline: 3px solid #3498db; }
+.pin-dots { text-align: center; font-size: 34px; letter-spacing: 14px; margin: 14px 0; min-height: 40px; }
+.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 340px; margin: 0 auto; }
+.pad button { padding: 20px; font-size: 24px; border-radius: 8px; border: 1px solid #bbb;
+              background: #fff; }
+.task { background: #fff; border: 1px solid #d0d0d0; border-left: 6px solid #3498db; border-radius: 6px;
+        padding: 14px; margin: 10px 0; cursor: pointer; }
+.task .num { font-weight: bold; font-size: 19px; color: #2c3e50; }
+.line { background: #fff; border: 1px solid #d0d0d0; border-radius: 6px; padding: 12px; margin: 8px 0; }
+.line.done { border-left: 6px solid #27ae60; }
+.line.pending { border-left: 6px solid #e67e22; }
+.qty { font-size: 22px; font-weight: bold; }
+#overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+           flex-direction: column; color: #fff; text-align: center; padding: 24px; z-index: 50; }
+#overlay.ok { background: #1e8449; } #overlay.err { background: #c0392b; }
+#overlay h2 { font-size: 30px; margin-bottom: 12px; }
+#overlay p { font-size: 19px; margin: 4px 0; }
+.toast { position: fixed; bottom: 12px; left: 12px; right: 12px; background: #2c3e50; color: #fff;
+         padding: 12px; border-radius: 6px; display: none; z-index: 60; }
+.loc-badge { background: #d4e9fb; color: #2471a3; padding: 6px 12px; border-radius: 20px;
+             display: inline-block; margin: 6px 0; font-weight: bold; }
+.muted { color: #7f8c8d; font-size: 15px; }
+input.code { width: 100%; padding: 14px; font-size: 19px; border: 2px solid #b9c2cc; border-radius: 6px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a class="back" href="#" onclick="goBack();return false">←</a>
+  <span class="ttl" id="hdr-title">WMS · ТСД</span>
+  <span class="muted" style="color:#aed6f1" id="hdr-user"></span>
+</div>
+
+<!-- 1. Авторизация -->
+<div class="screen active" id="scr-login">
+  <p class="muted mb" style="margin-bottom:10px">1. Выберите пользователя:</p>
+  <div id="users"></div>
+  <p style="margin:14px 0 6px">2. Введите PIN (4 цифры):</p>
+  <div class="pin-dots" id="pin-dots">• • • •</div>
+  <div class="pad">
+    <button onclick="pin('1')">1</button><button onclick="pin('2')">2</button><button onclick="pin('3')">3</button>
+    <button onclick="pin('4')">4</button><button onclick="pin('5')">5</button><button onclick="pin('6')">6</button>
+    <button onclick="pin('7')">7</button><button onclick="pin('8')">8</button><button onclick="pin('9')">9</button>
+    <button class="red" style="background:#e74c3c;color:#fff" onclick="pinClear()">C</button>
+    <button onclick="pin('0')">0</button>
+    <button class="green" style="background:#27ae60;color:#fff" onclick="doLogin()">OK</button>
+  </div>
+</div>
+
+<!-- 2. Список заданий -->
+<div class="screen" id="scr-tasks">
+  <div id="tasklist"></div>
+  <button class="btn gray" onclick="loadTasks()">⟳ Обновить</button>
+  <button class="btn" onclick="showScreen('scr-return')">↩ Быстрый возврат на склад</button>
+  <button class="btn red" onclick="logout()">Выход</button>
+</div>
+
+<!-- 3. Выполнение задания -->
+<div class="screen" id="scr-task">
+  <div id="task-info"></div>
+  <div class="loc-badge" id="cur-loc">Место: не задано</div>
+  <input class="code" id="scan-input" placeholder="Сканируйте код (место / коробку / товар)…"
+         autocomplete="off">
+  <div id="lines"></div>
+</div>
+
+<!-- Экран быстрого возврата -->
+<div class="screen" id="scr-return">
+  <div id="return-list"></div>
+  <button class="btn gray" onclick="loadMyIssued()">⟳ Обновить</button>
+</div>
+
+<!-- Оверлеи успеха/ошибки -->
+<div id="overlay"><h2 id="ov-title"></h2><p id="ov-text"></p><p id="ov-detail" class="muted" style="color:#fde3e1"></p>
+<button class="btn" style="max-width:320px;margin-top:20px;background:#fff;color:#333" onclick="hideOverlay()">Продолжить</button></div>
+<div class="toast" id="toast"></div>
+<div id="dlg" style="position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:70">
+ <div style="background:#fff;border-radius:8px;padding:16px;width:90%;max-width:420px">
+  <p id="dlg-text" style="font-size:18px;margin-bottom:10px"></p>
+  <input id="dlg-input" class="code" autocomplete="off">
+  <button class="btn green" style="margin-top:12px" onclick="dlgOk()">Подтвердить</button>
+  <button class="btn gray" onclick="dlgCancel()">Отмена</button>
+ </div></div>
+
+<script>
+// Мост с Android-обёрткой ТСД. В обычном браузере — стандартные prompt/confirm.
+window.WmsServer = { baseUrl: (window.AndroidTcd ? AndroidTcd.baseUrl() : location.origin) };
+if (!window.prompt) {
+  window.prompt = function(t, d){ return null; }; // на случай отсутствия диалогов
+}
+</script>
+<script>
+const API = '';   // базовый URL подставляет Android-обёртка (window.WmsServer.baseUrl)
+let state = { userId: null, pin: '', selUser: null, taskId: null, locId: null, locName: '' };
+
+function serverBase() {
+  try { if (window.AndroidTcd && AndroidTcd.baseUrl()) return AndroidTcd.baseUrl(); } catch(e) {}
+  return location.origin;
+}
+// приёмник нативных сканов от Android-обёртки (ТСД)
+window.onNativeScan = function(code){
+  const active = document.querySelector('.screen.active');
+  if (!active) return;
+  if (active.id === 'scr-task') { handleScan(code); }
+  else if (active.id === 'scr-return') { quickReturnLast(code); }
+};
+let lastReturnItem = null;
+async function quickReturnLast(code){
+  if (lastReturnItem!==null) await quickReturn2(lastReturnItem, code);
+}
+async function api(path, opts={}) {
+  opts.headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
+  const r = await fetch(serverBase() + path, opts);
+  return await r.json();
+}
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function goBack(){
+  const a=document.querySelector('.screen.active');
+  if (a.id==='scr-task') showScreen('scr-tasks'), loadTasks();
+  else if (a.id==='scr-return') showScreen('scr-tasks');
+}
+function toast(t){ const el=document.getElementById('toast'); el.textContent=t; el.style.display='block';
+  setTimeout(()=>el.style.display='none', 2500); }
+function beep(ok){
+  try { if(window.AndroidTcd){ ok?AndroidTcd.beepOk():AndroidTcd.beepError(); } } catch(e){}
+  try {
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = ok ? 880 : 220; g.gain.value = .15;
+    o.start(); setTimeout(()=>{ o.frequency.value = ok?1320:160; }, 120);
+    setTimeout(()=>{ o.stop(); ctx.close(); }, ok?260:450);
+    if (navigator.vibrate) navigator.vibrate(ok?[80]:[150,80,150]);
+  } catch(e){}
+}
+function hideOverlay(){ document.getElementById('overlay').style.display='none'; }
+function overlayOk(text, detail){
+  const ov=document.getElementById('overlay'); ov.className='ok'; ov.style.display='flex';
+  document.getElementById('ov-title').textContent='✔ ВЫПОЛНЕНО';
+  document.getElementById('ov-text').textContent=text;
+  document.getElementById('ov-detail').textContent=detail||'';
+  beep(true); setTimeout(hideOverlay, 1500);
+}
+function overlayErr(text, exp, got){
+  const ov=document.getElementById('overlay'); ov.className='err'; ov.style.display='flex';
+  document.getElementById('ov-title').textContent='✖ ОШИБКА';
+  document.getElementById('ov-text').textContent=text;
+  document.getElementById('ov-detail').textContent=(exp?('Ожидалось: '+exp+'\n'):'')+(got?('Отсканировано: '+got):'');
+  beep(false);
+}
+
+
+let dlgCb = null;
+function askText(text, defVal, cb){
+  dlgCb = cb;
+  document.getElementById('dlg-text').textContent = text;
+  const inp = document.getElementById('dlg-input');
+  inp.value = defVal||''; inp.type = 'text';
+  document.getElementById('dlg').style.display='flex'; inp.focus();
+}
+function askCode(text, cb){ askText(text,'',cb); document.getElementById('dlg-input').focus(); }
+function dlgOk(){ const v=document.getElementById('dlg-input').value.trim();
+  document.getElementById('dlg').style.display='none'; if(dlgCb) dlgCb(v); dlgCb=null; }
+function dlgCancel(){ document.getElementById('dlg').style.display='none'; if(dlgCb) dlgCb(null); dlgCb=null; }
+
+// ---------- login ----------
+async function initLogin(){
+  const users = await api('/api/terminal/users');
+  document.getElementById('users').innerHTML = users.map(u =>
+    `<div class="user-card" id="u-${u.id}" onclick="selUser(${u.id},'${(u.full_name||'').replace(/'/g,"\\'"}')">${u.full_name} <span class="muted">(${u.role})</span></div>`
+  ).join('');
+}
+function selUser(id,name){ state.userId=id; state.selUser=name;
+  document.querySelectorAll('.user-card').forEach(c=>c.classList.remove('sel'));
+  document.getElementById('u-'+id).classList.add('sel'); }
+function pin(d){ if(state.pin.length>=4) return; state.pin+=d; renderPin(); }
+function pinClear(){ state.pin=''; renderPin(); }
+function renderPin(){ document.getElementById('pin-dots').textContent =
+  (state.pin.padEnd(4,' ')).split('').map(c=>c===' '?'•':c).join(' '); }
+async function doLogin(){
+  if(!state.userId){ toast('Выберите пользователя'); return; }
+  const r = await api('/api/terminal/login',{method:'POST',body:JSON.stringify({user_id:state.userId,pin:state.pin})});
+  if(!r.ok){ overlayErr(r.error||'Ошибка входа','',''); state.pin=''; renderPin(); return; }
+  document.getElementById('hdr-user').textContent=r.full_name;
+  hideOverlay(); loadTasks(); showScreen('scr-tasks');
+}
+async function logout(){ try{ await fetch(serverBase()+'/logout'); }catch(e){}
+  state={ userId:null, pin:'', selUser:null, taskId:null, locId:null, locName:'' };
+  renderPin(); initLogin(); showScreen('scr-login'); }
+
+// ---------- tasks ----------
+async function loadTasks(){
+  const tasks = await api('/api/terminal/tasks');
+  if (tasks.ok===false){ toast(tasks.error); return; }
+  document.getElementById('tasklist').innerHTML = tasks.length ? tasks.map(t=>
+    `<div class="task" onclick="openTask(${t.id})">
+      <div class="num">${t.number}</div>
+      <div class="muted">${t.status==='sent'?'Отправлено':'В работе'} · строк: ${t.lines_done}/${t.lines_total}${t.notes?' · '+t.notes:''}</div>
+     </div>`).join('') : '<p class="muted">Активных заданий нет</p>';
+}
+async function openTask(id){
+  state.taskId=id;
+  const t = await api('/api/terminal/tasks/'+id);
+  if(!t.ok){ toast(t.error); return; }
+  document.getElementById('task-info').innerHTML =
+    `<h2 style="color:#2c3e50;font-size:21px">${t.number}</h2><p class="muted" style="margin-bottom:8px">${t.notes||''}</p>`;
+  const ACTION={ISSUE_ASSET:'Выдача оборудования',ISSUE_CONSUMABLE:'Выдача расходника',
+    RETURN_ASSET:'Возврат оборудования',RETURN_CONSUMABLE:'Возврат расходника',
+    FINAL_WRITEOFF:'Финальное списание',DIRECT_WRITEOFF:'Прямое списание'};
+  document.getElementById('lines').innerHTML = t.lines.map(l=>
+    `<div class="line ${l.status==='completed'?'done':'pending'}">
+      <div><b>${ACTION[l.action_type]||l.action_type}</b></div>
+      <div>${l.nomenclature}${l.serial?' ['+l.serial+']':''}${l.asset_mode==='any'&&!l.serial?' (любой экземпляр)':''}</div>
+      <div class="qty">${l.scanned_qty} / ${l.required_qty} ${l.location?'· место '+l.location:''}
+        ${l.status==='completed'?' ✔':''}</div>
+     </div>`).join('');
+  showScreen('scr-task');
+  document.getElementById('scan-input').focus();
+}
+
+// ---------- scanning ----------
+document.getElementById('scan-input').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ const v=e.target.value.trim(); e.target.value=''; if(v) handleScan(v); }
+});
+async function handleScan(code){
+  if(!state.taskId) return;
+  let qty = null;
+  // при скане коробки запрашиваем подтверждение количества
+  if (/^WMS:BOX:/i.test(code)) {
+    let done=false;
+    askText('Подтвердите количество из коробки:', String(state.lastBoxQty||1), (ans)=>{
+      if(done) return; done=true;
+      if(ans===null||ans===''){ toast('Ввод отменён'); return; }
+      const q=parseFloat(ans.replace(',','.'));
+      if(isNaN(q)||q<=0){ toast('Некорректное количество'); return; }
+      state.lastBoxQty=q;
+      sendScan(code, q);
+    });
+    return;
+  }
+  await sendScan(code, null);
+}
+async function sendScan(code, qty){
+  const body = {task_id: state.taskId, code: code, device_id: 'TCD'};
+  if (qty!==null) body.qty = qty;
+  if (state.locId) body.current_location_id = state.locId;
+  const r = await api('/api/terminal/scan',{method:'POST',body:JSON.stringify(body)});
+  if (r.result==='location_ok'){
+    state.locId=r.location_id; state.locName=r.location_name;
+    document.getElementById('cur-loc').textContent='Место: '+r.location_name;
+    toast('Место задано'); beep(true); openTask(state.taskId); return;
+  }
+  if (!r.ok){ overlayErr(r.error, r.expected, r.got); return; }
+  if (r.task_status==='completed'){
+    overlayOk('Задание выполнено! Документы проведены.', r.nomenclature);
+    setTimeout(()=>{ loadTasks(); showScreen('scr-tasks'); }, 1600);
+  } else {
+    overlayOk(`${r.nomenclature}: ${r.scanned_qty}/${r.required_qty}`, '');
+    openTask(state.taskId);
+  }
+}
+
+// ---------- quick return ----------
+async function loadMyIssued(){
+  const r = await api('/api/terminal/my_issued');
+  if(!r.ok){ toast(r.error||''); return; }
+  document.getElementById('return-list').innerHTML =
+    '<p class="muted" style="margin-bottom:8px">Числится за вами. Нажмите «Вернуть», затем отсканируйте место хранения.</p>' +
+    (r.items.length ? r.items.map(it=>
+      `<div class="task"><div class="num">${it.nomenclature}${it.serial?' ['+it.serial+']':''}</div>
+       <div class="muted">кол-во: ${it.qty} · выдано: ${it.issued_at.slice(0,16).replace('T',' ')}</div>
+       <button class="btn green" style="padding:10px;font-size:17px" onclick="quickReturn(${it.id})">↩ Вернуть на склад</button></div>`
+    ).join('') : '<p class="muted">Ничего не числится</p>');
+}
+function quickReturn(itemId){
+  lastReturnItem = itemId;
+  askCode('Отсканируйте QR-код места хранения', async (code)=>{
+    if(!code){ toast('Отменено'); return; }
+    await quickReturn2(itemId, code);
+  });
+}
+async function quickReturn2(itemId, code){
+  const r = await api('/api/terminal/quick_return',{method:'POST',
+    body:JSON.stringify({item_id:itemId, location_code:code.trim()})});
+  lastReturnItem=null;
+  if(r.ok){ overlayOk('Возврат выполнен',''); loadMyIssued(); }
+  else overlayErr(r.error||'Ошибка','','');
+}
+
+initLogin();
+</script>
+</body>
+</html>

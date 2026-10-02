@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Номенклатура — {{ app_title }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Справочник «Номенклатура»</h1></div>
+<div class="toolbar">
+  <a class="btn btn-primary" href="/nomenclature/new/form">➕ Создать</a>
+  <form method="get" style="display:flex;gap:8px;align-items:center">
+    <input type="text" name="q" placeholder="Поиск: наименование / артикул" value="{{ q }}" style="width:260px">
+    <select name="typ">
+      <option value="">Все типы</option>
+      <option value="consumable" {% if typ=='consumable' %}selected{% endif %}>Расходные</option>
+      <option value="asset" {% if typ=='asset' %}selected{% endif %}>Оборудование</option>
+    </select>
+    <label style="font-size:12px"><input type="checkbox" name="only_active" {% if only_active %}checked{% endif %}> только активные</label>
+    <button class="btn">Найти</button>
+    <a class="btn" href="/nomenclature">Сброс</a>
+  </form>
+</div>
+<div class="panel">
+<table class="grid">
+  <tr>
+    <th><a href="?q={{q}}&typ={{typ}}&sort=name">Наименование</a></th>
+    <th><a href="?q={{q}}&typ={{typ}}&sort=sku">Артикул</a></th>
+    <th><a href="?q={{q}}&typ={{typ}}&sort=type">Тип</a></th>
+    <th>Ед.изм.</th><th>Штрихкоды</th><th>Статус</th><th>Действия</th>
+  </tr>
+  {% for n in items %}
+  <tr class="clickable" onclick="location='/nomenclature/{{ n.id }}'">
+    <td>{{ n.name }}</td>
+    <td><code>{{ n.sku }}</code></td>
+    <td>{% if n.type=='asset' %}<span class="badge purple">Оборудование</span>{% else %}<span class="badge blue">Расходная</span>{% endif %}</td>
+    <td>{{ n.unit.code if n.unit else '—' }}</td>
+    <td class="center">{{ n.barcodes|length if n.barcodes is defined else '' }}</td>
+    <td>{% if n.is_active %}<span class="badge green">Открыта</span>{% else %}<span class="badge gray">Закрыта</span>{% endif %}</td>
+    <td onclick="event.stopPropagation()">
+      <a class="btn btn-sm" href="/nomenclature/{{ n.id }}/edit">Изменить</a>
+      <a class="btn btn-sm" href="/nomenclature/{{ n.id }}/qr.png?dl=1" title="Скачать QR">QR⬇</a>
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="7" class="muted center">Ничего не найдено</td></tr>
+  {% endfor %}
+</table>
+</div>
+{% endblock %}
+{% block status_right %}Элементов: {{ items|length }}{% endblock %}
