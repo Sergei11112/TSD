@@ -1,5 +1,8 @@
-(empty)
-# Windows
 venv/
+.venv/
+__pycache__/
+*.pyc
+server/data/*.db
+server/data/*.log
 *.lnk
-server/data/wms.log
+.DS_Store
