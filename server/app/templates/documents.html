@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Документы — {{ app_title }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Журнал документов</h1></div>
+<div class="toolbar">
+  <form method="get" style="display:flex;gap:8px">
+    <input type="text" name="q" placeholder="Номер" value="{{ q }}" style="width:170px">
+    <select name="typ"><option value="">Все виды</option>
+      {% for k,v in doc_types.items() %}<option value="{{ k }}" {% if typ==k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select>
+    <select name="status"><option value="">Все статусы</option>
+      <option value="posted" {% if status=='posted' %}selected{% endif %}>Проведён</option>
+      <option value="cancelled" {% if status=='cancelled' %}selected{% endif %}>Отменён</option></select>
+    <button class="btn">Найти</button><a class="btn" href="/documents">Сброс</a>
+  </form>
+</div>
+<div class="panel">
+<table class="grid">
+  <tr><th>Номер</th><th>Вид</th><th>Задание</th><th>Статус</th><th>Проведён</th><th>Создал</th></tr>
+  {% for d in items %}
+  <tr class="clickable" onclick="location='/documents/{{ d.id }}'">
+    <td><b>{{ d.number }}</b></td>
+    <td>{% if d.type=='ISSUE' %}<span class="badge orange">Выдача</span>
+        {% elif d.type=='RETURN' %}<span class="badge green">Возврат</span>
+        {% elif d.type=='WRITEOFF' %}<span class="badge red">Списание</span>
+        {% else %}<span class="badge blue">Перемещение</span>{% endif %}</td>
+    <td>{% if d.task %}<a href="/tasks/{{ d.task_id }}">{{ d.task.number }}</a>{% else %}—{% endif %}</td>
+    <td>{% if d.status=='posted' %}<span class="badge green">Проведён</span>
+        {% elif d.status=='cancelled' %}<span class="badge red">Отменён</span>
+        {% else %}<span class="badge gray">Черновик</span>{% endif %}</td>
+    <td>{{ d.posted_at.strftime('%d.%m.%Y %H:%M') if d.posted_at else '—' }}</td>
+    <td>{{ d.created_by or '—' }}</td>
+  </tr>
+  {% else %}<tr><td colspan="6" class="muted center">Документов нет</td></tr>{% endfor %}
+</table>
+</div>
+{% endblock %}
+{% block status_right %}Документов: {{ items|length }}{% endblock %}

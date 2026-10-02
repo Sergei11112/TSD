@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ emp.full_name }} — карточка учёта{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="/employees">Сотрудники</a> › {{ emp.full_name }}</div>
+<div class="page-head">
+  <h1>📇 Карточка учёта: {{ emp.full_name }}</h1>
+  <span class="muted">{{ emp.position }}{% if emp.department %} · {{ emp.department }}{% endif %}</span>
+  <span style="flex:1"></span>
+  <a class="btn" href="/employees?q={{ emp.id }}">✏ Реквизиты</a>
+</div>
+
+<div class="stat-grid mb">
+  <div class="stat-card" style="border-left-color:#e67e22"><div class="v">{{ open_items|length }}</div><div class="t">Позиций на руках</div></div>
+  <div class="stat-card"><div class="v">{{ assets|length }}</div><div class="t">Оборудования (шт.)</div></div>
+  <div class="stat-card"><div class="v">{{ history|length }}</div><div class="t">Движений в истории</div></div>
+</div>
+
+<div class="panel"><div class="panel-head">ТМЦ на руках (не возвращено)</div>
+<table class="grid">
+  <tr><th>Дата выдачи</th><th>Номенклатура</th><th>Экземпляр</th><th class="num">Кол-во</th><th>Документ</th></tr>
+  {% for i in open_items %}
+  <tr style="background:#fff7e6">
+    <td>{{ i.issued_at.strftime('%d.%m.%Y') }}</td>
+    <td><a href="/nomenclature/{{ i.nomenclature_id }}">{{ i.nomenclature.name if i.nomenclature else '?' }}</a></td>
+    <td>{% if i.asset_instance %}<code>{{ i.asset_instance.serial_number }}</code>{% else %}—{% endif %}</td>
+    <td class="num">{{ '%g'|format(i.qty) }}</td>
+    <td>{% if i.document_id %}<a href="/documents/{{ i.document_id }}">№{{ i.document_id }}</a>{% else %}—{% endif %}</td>
+  </tr>
+  {% else %}<tr><td colspan="5" class="muted center">Всё возвращено ✔</td></tr>{% endfor %}
+</table></div>
+
+{% if assets %}
+<div class="panel"><div class="panel-head">Закреплённое оборудование</div>
+<table class="grid">
+  <tr><th>Серийный №</th><th>Инв. №</th><th>Номенклатура</th><th>Статус</th></tr>
+  {% for a in assets %}
+  <tr><td><code>{{ a.serial_number }}</code></td><td>{{ a.internal_code or '—' }}</td>
+      <td>{{ a.nomenclature.name if a.nomenclature else '?' }}</td>
+      <td><span class="badge orange">Выдано</span></td></tr>
+  {% endfor %}
+</table></div>
+{% endif %}
+
+<div class="panel"><div class="panel-head">История движений ТМЦ (последние 300)</div>
+<table class="grid">
+  <tr><th>Дата</th><th>Документ</th><th>Номенклатура</th><th>Экземпляр</th><th>Вид</th><th class="num">Кол-во</th></tr>
+  {% for m in history %}
+  <tr>
+    <td>{{ m.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+    <td>{% if m.document %}<a href="/documents/{{ m.document_id }}">{{ m.document.number }}</a>{% else %}—{% endif %}</td>
+    <td>{{ m.nomenclature.name if m.nomenclature else '?' }}</td>
+    <td>{% if m.asset_instance %}<code>{{ m.asset_instance.serial_number }}</code>{% else %}—{% endif %}</td>
+    <td>{% if m.movement_type=='ISSUE' %}<span class="badge orange">Выдача</span>
+        {% elif m.movement_type=='RETURN' %}<span class="badge green">Возврат</span>
+        {% elif m.movement_type=='WRITEOFF' %}<span class="badge red">Списание</span>
+        {% else %}<span class="badge gray">{{ m.movement_type }}</span>{% endif %}</td>
+    <td class="num">{{ '%g'|format(m.qty) }}</td>
+  </tr>
+  {% else %}<tr><td colspan="6" class="muted center">Движений нет</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

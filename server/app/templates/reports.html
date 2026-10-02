@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Отчёты — {{ app_title }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Отчёты</h1></div>
+<div class="toolbar">
+  <form method="get" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <select name="report" onchange="this.form.submit()">
+      <option value="movements" {% if report=='movements' %}selected{% endif %}>Движения ТМЦ</option>
+      <option value="stock" {% if report=='stock' %}selected{% endif %}>Остатки (срез)</option>
+      <option value="issued" {% if report=='issued' %}selected{% endif %}>Выдано сотрудникам</option>
+      <option value="abc" {% if report=='abc' %}selected{% endif %}>ABC-анализ оборота</option>
+      <option value="errors" {% if report=='errors' %}selected{% endif %}>Ошибки сканирования</option>
+    </select>
+    {% if report in ('movements','issued') %}
+    <label class="muted small">с <input type="date" name="date_from" value="{{ date_from }}"></label>
+    <label class="muted small">по <input type="date" name="date_to" value="{{ date_to }}"></label>
+    {% endif %}
+    <button class="btn">Показать</button>
+  </form>
+</div>
+
+{% if report=='movements' %}
+<div class="panel"><div class="panel-head">Движения ТМЦ (последние 500)</div>
+<table class="grid">
+  <tr><th>Дата</th><th>Документ</th><th>Номенклатура</th><th>Экземпляр</th><th>Вид</th>
+      <th class="num">Кол-во</th><th>Место</th><th>Сотрудник</th></tr>
+  {% for m in moves %}
+  <tr>
+    <td>{{ m.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+    <td>{% if m.document %}<a href="/documents/{{ m.document_id }}">{{ m.document.number }}</a>{% else %}—{% endif %}</td>
+    <td>{{ m.nomenclature.name if m.nomenclature else '?' }}</td>
+    <td>{% if m.asset_instance %}<code>{{ m.asset_instance.serial_number }}</code>{% else %}—{% endif %}</td>
+    <td>{% if m.movement_type=='ISSUE' %}<span class="badge orange">Выдача</span>
+        {% elif m.movement_type=='RETURN' %}<span class="badge green">Возврат</span>
+        {% elif m.movement_type=='WRITEOFF' %}<span class="badge red">Списание</span>
+        {% elif m.movement_type=='RECEIPT' %}<span class="badge blue">Приход</span>
+        {% else %}<span class="badge gray">Перемещ.</span>{% endif %}</td>
+    <td class="num">{{ '%g'|format(m.qty) }}</td>
+    <td>{{ m.location.code if m.location else '—' }}</td>
+    <td>{{ m.employee.full_name if m.employee else '—' }}</td>
+  </tr>
+  {% else %}<tr><td colspan="8" class="muted center">Нет движений за период</td></tr>{% endfor %}
+</table></div>
+
+{% elif report=='stock' %}
+<div class="panel"><div class="panel-head">Срез остатков на сейчас</div>
+<table class="grid">
+  <tr><th>Номенклатура</th><th>Артикул</th><th>Тип</th>
+      <th class="num">На складе</th><th class="num">В работе</th><th class="num">Числится всего</th></tr>
+  {% for r in rows %}
+  <tr class="clickable" onclick="location='/nomenclature/{{ r.n.id }}?tab=stock'">
+    <td>{{ r.n.name }}</td><td><code>{{ r.n.sku }}</code></td>
+    <td>{% if r.n.type=='asset' %}<span class="badge purple">Оборуд.</span>{% else %}<span class="badge blue">Расход.</span>{% endif %}</td>
+    <td class="num">{{ '%g'|format(r.wh) }}</td>
+    <td class="num">{{ '%g'|format(r.work) }}</td>
+    <td class="num"><b>{{ '%g'|format(r.total) }}</b></td>
+  </tr>
+  {% else %}<tr><td colspan="6" class="muted center">Нет остатков</td></tr>{% endfor %}
+</table></div>
+
+{% elif report=='issued' %}
+<div class="panel"><div class="panel-head">Выдано сотрудникам (за период; открытые позиции выделены)</div>
+<table class="grid">
+  <tr><th>Дата выдачи</th><th>Сотрудник</th><th>Номенклатура</th><th>Экземпляр</th>
+      <th class="num">Кол-во</th><th>Статус</th><th>Закрыт</th></tr>
+  {% for i in items %}
+  <tr {% if i.status=='open' %}style="background:#fff7e6"{% endif %}>
+    <td>{{ i.issued_at.strftime('%d.%m.%Y %H:%M') }}</td>
+    <td>{{ i.employee.full_name if i.employee else '—' }}</td>
+    <td>{{ i.nomenclature.name if i.nomenclature else '?' }}</td>
+    <td>{% if i.asset_instance %}<code>{{ i.asset_instance.serial_number }}</code>{% else %}—{% endif %}</td>
+    <td class="num">{{ '%g'|format(i.qty) }}</td>
+    <td>{% if i.status=='open' %}<span class="badge orange">На руках</span>{% else %}<span class="badge green">Закрыта</span>{% endif %}</td>
+    <td>{{ i.closed_at.strftime('%d.%m.%Y') if i.closed_at else '—' }}</td>
+  </tr>
+  {% else %}<tr><td colspan="7" class="muted center">Нет выдач за период</td></tr>{% endfor %}
+</table></div>
+
+{% elif report=='abc' %}
+<div class="panel"><div class="panel-head">ABC-анализ оборота (по количеству движений за последние 90 дней)</div>
+<table class="grid">
+  <tr><th>Ранг</th><th>Группа</th><th>Номенклатура</th><th class="num">Движений</th><th class="num">Объём, ед.</th></tr>
+  {% for r in abc_rows %}
+  <tr>
+    <td>{{ loop.index }}</td>
+    <td>{% if r.group=='A' %}<span class="badge red">A</span>{% elif r.group=='B' %}<span class="badge orange">B</span>{% else %}<span class="badge gray">C</span>{% endif %}</td>
+    <td>{{ r.n.name }}</td><td class="num">{{ r.cnt }}</td><td class="num">{{ '%g'|format(r.vol) }}</td>
+  </tr>
+  {% else %}<tr><td colspan="5" class="muted center">Недостаточно данных — сначала проведите документы</td></tr>{% endfor %}
+</table></div>
+
+{% elif report=='errors' %}
+<div class="panel"><div class="panel-head">Ошибки сканирования на ТСД (журнал «ожидалось / получено»)</div>
+<table class="grid">
+  <tr><th>Время</th><th>Задание</th><th>Код</th><th>Причина</th><th>Ожидалось</th><th>Получено</th><th>Устройство</th></tr>
+  {% for e in errs %}
+  <tr>
+    <td>{{ e.created_at.strftime('%d.%m.%Y %H:%M:%S') }}</td>
+    <td><a href="/tasks/{{ e.task_id }}">{{ e.task.number if e.task else e.task_id }}</a></td>
+    <td><code>{{ e.scanned_code[:40] }}</code></td>
+    <td style="color:#c0392b">{{ e.error_reason }}</td>
+    <td class="muted small">{{ e.expected or '' }}</td>
+    <td class="muted small">{{ e.got or '' }}</td>
+    <td class="muted small">{{ e.device_id }}</td>
+  </tr>
+  {% else %}<tr><td colspan="7" class="muted center">Ошибок нет — отлично! 🎉</td></tr>{% endfor %}
+</table></div>
+{% endif %}
+{% endblock %}

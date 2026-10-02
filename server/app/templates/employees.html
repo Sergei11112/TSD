@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Сотрудники — {{ app_title }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Справочник «Сотрудники»</h1></div>
+{% if edit %}
+<div class="breadcrumb"><a href="/employees">Сотрудники</a> › {{ edit.full_name }}</div>
+<div class="panel"><div class="panel-head">Карточка сотрудника</div>
+<form method="post" action="/employees/save">
+<input type="hidden" name="id" value="{{ edit.id }}">
+<table class="grid form-table" style="border:none">
+  <tr><td style="width:200px;background:#f7f9fb" class="req">ФИО</td>
+      <td><input type="text" name="full_name" required value="{{ edit.full_name }}" style="width:380px"></td></tr>
+  <tr><td style="background:#f7f9fb">Должность</td><td><input type="text" name="position" value="{{ edit.position }}" style="width:280px"></td></tr>
+  <tr><td style="background:#f7f9fb">Подразделение</td><td><input type="text" name="department" value="{{ edit.department }}" style="width:280px"></td></tr>
+  <tr><td style="background:#f7f9fb">Учётная запись (для ТСД)</td>
+      <td><select name="user_id"><option value="">— не привязана —</option>
+        {% for us in users %}<option value="{{ us.id }}" {% if edit.user_id==us.id %}selected{% endif %}>{{ us.username }} ({{ us.role }})</option>{% endfor %}
+      </select></td></tr>
+  <tr><td style="background:#f7f9fb">Активен</td>
+      <td><label><input type="checkbox" name="is_active" {% if edit.is_active %}checked{% endif %}> Работает</label></td></tr>
+</table>
+<div class="toolbar" style="border:none;background:none">
+  <button class="btn btn-success">💾 Записать</button>
+  <a class="btn" href="/employees/{{ edit.id }}/card">📇 Карточка учёта</a>
+  <a class="btn" href="/employees">К списку</a>
+</div>
+</form></div>
+{% else %}
+<div class="toolbar">
+  <button class="btn btn-primary" onclick="newEmp()">➕ Создать</button>
+  <form method="get" style="display:flex;gap:8px">
+    <input type="text" name="q" placeholder="Поиск ФИО" value="{{ q }}" style="width:240px">
+    <button class="btn">Найти</button><a class="btn" href="/employees">Сброс</a>
+  </form>
+</div>
+<div class="panel">
+<table class="grid">
+  <tr><th>ФИО</th><th>Должность</th><th>Подразделение</th><th class="num">На руках позиций</th><th>Статус</th><th></th></tr>
+  {% for e in items %}
+  {% set oi = per_emp.get(e.id, []) %}
+  <tr class="clickable" onclick="location='/employees?q={{ e.id }}'">
+    <td><b>{{ e.full_name }}</b></td><td>{{ e.position or '—' }}</td><td>{{ e.department or '—' }}</td>
+    <td class="num">{% if oi %}<span style="color:#e67e22">{{ oi|length }}</span>{% else %}0{% endif %}</td>
+    <td>{% if e.is_active %}<span class="badge green">Активен</span>{% else %}<span class="badge gray">Уволен</span>{% endif %}</td>
+    <td onclick="event.stopPropagation()"><a class="btn btn-sm" href="/employees/{{ e.id }}/card">📇 Карточка</a></td>
+  </tr>
+  {% else %}<tr><td colspan="6" class="muted center">Сотрудников нет</td></tr>{% endfor %}
+</table>
+</div>
+
+<div class="modal-backdrop" id="emp_modal">
+  <div class="modal" style="min-width:460px">
+    <div class="m-head">Новый сотрудник<a href="#" onclick="closeEmp();return false" style="color:#fff">✕</a></div>
+    <form method="post" action="/employees/save">
+      <div class="m-body"><table class="form-table">
+        <tr><td class="req">ФИО</td><td><input type="text" name="full_name" required style="width:320px"></td></tr>
+        <tr><td>Должность</td><td><input type="text" name="position" style="width:240px"></td></tr>
+        <tr><td>Подразделение</td><td><input type="text" name="department" style="width:240px"></td></tr>
+        <tr><td>Учётная запись</td><td><select name="user_id"><option value="">— нет —</option>
+          {% for us in users %}<option value="{{ us.id }}">{{ us.username }} ({{ us.role }})</option>{% endfor %}</select></td></tr>
+      </table></div>
+      <div class="m-foot"><button type="button" class="btn" onclick="closeEmp()">Отмена</button>
+        <button class="btn btn-success">💾 Создать</button></div>
+    </form>
+  </div>
+</div>
+<script>
+function newEmp(){ document.getElementById('emp_modal').classList.add('open'); }
+function closeEmp(){ document.getElementById('emp_modal').classList.remove('open'); }
+</script>
+{% endif %}
+{% endblock %}
+{% block status_right %}Сотрудников: {{ items|length if items is defined else '' }}{% endblock %}

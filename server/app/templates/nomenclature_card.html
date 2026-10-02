@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}{{ n.name }} — номенклатура{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="/nomenclature">Номенклатура</a> › {{ n.sku }}</div>
+<div class="page-head">
+  <h1>{{ n.name }}</h1>
+  {% if n.type=='asset' %}<span class="badge purple">Оборудование</span>{% else %}<span class="badge blue">Расходная</span>{% endif %}
+  {% if not n.is_active %}<span class="badge gray">Закрыта</span>{% endif %}
+  <span class="spacer" style="flex:1"></span>
+  <a class="btn" href="/nomenclature/{{ n.id }}/edit">✏ Изменить</a>
+  {% if user.role=='admin' %}
+  <form class="inline-form" method="post" action="/nomenclature/{{ n.id }}/delete" onsubmit="return confirm('Удалить (или закрыть) номенклатуру?')">
+    <button class="btn btn-danger">🗑 Удалить</button>
+  </form>
+  {% endif %}
+</div>
+<div class="tabs">
+  <a class="{% if tab=='main' %}active{% endif %}" href="?tab=main">Основное</a>
+  <a class="{% if tab=='stock' %}active{% endif %}" href="?tab=stock">Остатки</a>
+  <a class="{% if tab=='barcodes' %}active{% endif %}" href="?tab=barcodes">Штрихкоды</a>
+  <a class="{% if tab=='photo' %}active{% endif %}" href="?tab=photo">Фото / QR</a>
+  <a class="{% if tab=='history' %}active{% endif %}" href="?tab=history">История</a>
+</div>
+
+{% if tab=='main' %}
+<div class="panel"><div class="panel-head">Свойства</div>
+<table class="grid">
+  <tr><td style="width:220px;color:#7f8c8d">Артикул (SKU)</td><td><code>{{ n.sku }}</code></td></tr>
+  <tr><td color>Тип</td><td>{{ 'Оборудование (учёт по экземплярам)' if n.type=='asset' else 'Расходная (учёт по количеству)' }}</td></tr>
+  <tr><td>Единица измерения</td><td>{{ n.unit.name ~ ' (' ~ n.unit.code ~ ')' if n.unit else '—' }}</td></tr>
+  <tr><td>Описание</td><td>{{ n.description or '—' }}</td></tr>
+  <tr><td>Создана</td><td>{{ n.created_at.strftime('%d.%m.%Y %H:%M') }}</td></tr>
+  <tr><td>Обновлена</td><td>{{ n.updated_at.strftime('%d.%m.%Y %H:%M') }}</td></tr>
+</table></div>
+{% endif %}
+
+{% if tab=='stock' %}
+<div class="stat-grid mb">
+  <div class="stat-card"><div class="v">{{ instances|length if n.type=='asset' else stock_wh }}</div><div class="t">{% if n.type=='asset' %}Экземпляров всего{% else %}На складе{% endif %}</div></div>
+  {% if n.type!='asset' %}<div class="stat-card"><div class="v">{{ in_work }}</div><div class="t">В работе</div></div>
+  <div class="stat-card"><div class="v">{{ reserved }}</div><div class="t">Резерв</div></div>
+  <div class="stat-card" style="border-left-color:#27ae60"><div class="v">{{ free }}</div><div class="t">Свободно</div></div>{% endif %}
+</div>
+{% if n.type=='asset' %}
+<div class="panel"><div class="panel-head">Экземпляры оборудования</div>
+<table class="grid">
+  <tr><th>Серийный номер</th><th>Инв. №</th><th>Статус</th><th>Сотрудник</th><th>Место</th></tr>
+  {% for a in instances %}
+  <tr>
+    <td><code>{{ a.serial_number }}</code></td><td>{{ a.internal_code or '—' }}</td>
+    <td>{% if a.status=='in_stock' %}<span class="badge green">На складе</span>
+        {% elif a.status=='issued' %}<span class="badge orange">Выдан</span>
+        {% elif a.status=='repair' %}<span class="badge blue">Ремонт</span>
+        {% else %}<span class="badge red">Списан</span>{% endif %}</td>
+    <td>{{ a.employee.full_name if a.employee else '—' }}</td>
+    <td>{{ a.location.code if a.location else '—' }}</td>
+  </tr>
+  {% else %}<tr><td colspan="5" class="muted center">Экземпляров нет</td></tr>{% endfor %}
+</table>
+<div style="padding:10px;border-top:1px solid #d0d0d0">
+  <form method="post" action="/nomenclature/{{ n.id }}/instance/add" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <b class="muted small">Добавить экземпляр:</b>
+    <input type="text" name="serial_number" placeholder="Серийный номер *" required style="width:180px">
+    <input type="text" name="internal_code" placeholder="Инв. №" style="width:120px">
+    <select name="location_id"><option value="">место…</option>
+      {% for l in cells %}<option value="{{ l.id }}">{{ l.code }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-primary btn-sm">➕ Добавить</button>
+  </form>
+</div>
+</div>
+{% else %}
+<div class="panel"><div class="panel-head">Остатки по местам хранения</div>
+<table class="grid">
+  <tr><th>Место хранения</th><th class="num">Числится</th><th class="num">Резерв</th><th class="num">Свободно</th></tr>
+  {% for r in rows %}
+  <tr><td><a href="/locations?sel={{ r.location_id }}">{{ r.location.code }} · {{ r.location.name }}</a></td>
+      <td class="num">{{ '%g'|format(r.qty_stock) }}</td>
+      <td class="num">{{ '%g'|format(r.qty_reserved) }}</td>
+      <td class="num">{{ '%g'|format(r.qty_stock - r.qty_reserved) }}</td></tr>
+  {% else %}<tr><td colspan="4" class="muted center">Остатков нет</td></tr>{% endfor %}
+</table></div>
+{% endif %}
+{% endif %}
+
+{% if tab=='barcodes' %}
+<div class="panel"><div class="panel-head">Заводские штрихкоды номенклатуры</div>
+<table class="grid">
+  <tr><th>Код</th><th>Дата привязки</th><th></th></tr>
+  {% for b in codes %}
+  <tr><td><code>{{ b.code }}</code></td><td>{{ b.created_at.strftime('%d.%m.%Y') }}</td>
+      <td><form class="inline-form" method="post" action="/barcode/{{ b.id }}/delete"><button class="btn btn-sm btn-danger">✂ Отвязать</button></form></td></tr>
+  {% else %}<tr><td colspan="3" class="muted center">Штрихкодов нет</td></tr>{% endfor %}
+</table>
+<div style="padding:10px;border-top:1px solid #d0d0d0">
+  <form method="post" action="/nomenclature/{{ n.id }}/barcode/add" style="display:flex;gap:8px">
+    <input type="text" name="code" id="bc_input" placeholder="Отсканируйте или введите штрихкод *" required style="width:320px" autocomplete="off">
+    <button class="btn btn-primary">➕ Привязать</button>
+  </form>
+  <div class="muted small mt">💡 Подключите USB-сканер — он работает как клавиатура: откройте поле и нажмите «Скан» на сканере.</div>
+</div>
+</div>
+{% endif %}
+
+{% if tab=='photo' %}
+<div style="display:flex;gap:16px;flex-wrap:wrap">
+  <div class="panel" style="flex:1;min-width:320px"><div class="panel-head">QR-код этикетки (WMS:ITEM:{{ n.id }})</div>
+    <div class="center" style="padding:14px">
+      <img class="qr-img" src="/nomenclature/{{ n.id }}/qr.png" width="240" height="240" alt="QR">
+      <div class="mt"><a class="btn btn-primary" href="/nomenclature/{{ n.id }}/qr.png?dl=1">⬇ Скачать PNG</a></div>
+    </div>
+  </div>
+  <div class="panel" style="flex:1;min-width:320px"><div class="panel-head">Фотография</div>
+    <div style="padding:14px">
+      {% if n.photo_path %}<img src="{{ n.photo_path }}" style="max-width:280px;max-height:220px;border:1px solid #d0d0d0">{% else %}<div class="muted">Фото не загружено</div>{% endif %}
+      <form method="post" action="/nomenclature/{{ n.id }}/photo" enctype="multipart/form-data" class="mt">
+        <input type="file" name="photo" accept="image/*">
+        <button class="btn btn-primary btn-sm">Загрузить</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if tab=='history' %}
+<div class="panel"><div class="panel-head">Движения ТМЦ (последние 200)</div>
+<table class="grid">
+  <tr><th>Дата</th><th>Документ</th><th>Вид</th><th class="num">Кол-во</th><th>Сотрудник</th><th>Место</th></tr>
+  {% for m in moves %}
+  <tr>
+    <td>{{ m.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+    <td>{% if m.document %}<a href="/documents/{{ m.document_id }}">{{ m.document.number }}</a>{% else %}—{% endif %}</td>
+    <td>{% if m.movement_type=='ISSUE' %}<span class="badge orange">Выдача</span>
+        {% elif m.movement_type=='RETURN' %}<span class="badge green">Возврат</span>
+        {% elif m.movement_type=='WRITEOFF' %}<span class="badge red">Списание</span>
+        {% elif m.movement_type=='RECEIPT' %}<span class="badge blue">Приход</span>
+        {% else %}<span class="badge gray">Перемещение</span>{% endif %}</td>
+    <td class="num">{{ '%g'|format(m.qty) }}</td>
+    <td>{{ m.employee.full_name if m.employee else '—' }}</td>
+    <td>{{ m.location.code if m.location else '—' }}</td>
+  </tr>
+  {% else %}<tr><td colspan="6" class="muted center">Движений нет</td></tr>{% endfor %}
+</table></div>
+{% endif %}
+{% endblock %}
+{% block status_right %}Номенклатура ID {{ n.id }}{% endblock %}

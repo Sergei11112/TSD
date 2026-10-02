@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">WMS ТСД</string>
+    <string name="settings_title">Настройки сервера</string>
+    <string name="server_url_hint">http://192.168.1.10:8000</string>
+    <string name="save">Сохранить</string>
+    <string name="open">Открыть</string>
+</resources>

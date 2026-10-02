@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Коробки — {{ app_title }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Коробки (тарные единицы с QR)</h1></div>
+{% if request.query_params.get('error') %}<div class="flash err">⛔ {{ request.query_params.get('error') }}</div>{% endif %}
+{% if request.query_params.get('ok') %}<div class="flash ok">✔ Сохранено. Остатки по местам синхронизированы.</div>{% endif %}
+
+{% if edit %}
+<div class="breadcrumb"><a href="/boxes">Коробки</a> › {{ edit.code }}</div>
+<div style="display:flex;gap:14px;flex-wrap:wrap">
+  <div class="panel" style="flex:1;min-width:380px"><div class="panel-head">Карточка коробки {{ edit.code }}</div>
+    <form method="post" action="/boxes/save">
+      <input type="hidden" name="id" value="{{ edit.id }}">
+      <table class="grid form-table" style="border:none">
+        <tr><td style="width:170px;background:#f7f9fb" class="req">Код коробки</td>
+            <td><input type="text" name="code" value="{{ edit.code }}" required style="width:220px"></td></tr>
+        <tr><td background style="background:#f7f9fb" class="req">Номенклатура (одна на коробку)</td>
+            <td><select name="nomenclature_id" required>
+              {% for nom in noms %}<option value="{{ nom.id }}" {% if edit.nomenclature_id==nom.id %}selected{% endif %}>{{ nom.name }} [{{ nom.sku }}]</option>{% endfor %}
+            </select></td></tr>
+        <tr><td style="background:#f7f9fb">Место хранения (ячейка)</td>
+            <td><select name="location_id"><option value="">— не размещена —</option>
+              {% for c in cells %}<option value="{{ c.id }}" {% if edit.location_id==c.id %}selected{% endif %}>{{ c.code }} · {{ c.name }}</option>{% endfor %}
+            </select></td></tr>
+        <tr><td style="background:#f7f9fb">Количество</td>
+            <td><input type="number" step="any" min="0" name="current_qty" value="{{ '%g'|format(edit.current_qty) }}" style="width:120px">
+                <span class="muted">{{ edit.nomenclature.unit.code if edit.nomenclature.unit else '' }}</span></td></tr>
+        <tr><td style="background:#f7f9fb">QR-код</td><td><code>{{ edit.qr_code }}</code></td></tr>
+      </table>
+      <div class="toolbar" style="border:none;background:none">
+        <button class="btn btn-success">💾 Записать</button>
+        <a class="btn" href="/boxes">К списку</a>
+        <a class="btn btn-primary" href="/boxes/{{ edit.id }}/qr.png?dl=1">QR ⬇ скачать</a>
+      </div>
+    </form>
+  </div>
+  <div class="panel" style="width:300px"><div class="panel-head">Этикетка</div>
+    <div class="center" style="padding:14px">
+      <img class="qr-img" src="/boxes/{{ edit.id }}/qr.png" width="230" height="230">
+      <div class="mt"><b>{{ edit.code }}</b><br>{{ edit.nomenclature.name }}<br>
+        <span class="muted">{{ '%g'|format(edit.current_qty) }} ед.</span></div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="toolbar">
+  <button class="btn btn-primary" onclick="newBox()">➕ Новая коробка</button>
+  <form method="get" style="display:flex;gap:8px">
+    <input type="text" name="q" placeholder="Поиск кода / товара" value="{{ q }}" style="width:220px">
+    <select name="loc_id"><option value="">Все места</option>
+      {% for c in cells %}<option value="{{ c.id }}" {% if loc_id==c.id %}selected{% endif %}>{{ c.code }}</option>{% endfor %}</select>
+    <button class="btn">Найти</button>
+    <a class="btn" href="/boxes">Сброс</a>
+  </form>
+</div>
+<div class="panel">
+<table class="grid">
+  <tr><th>Код</th><th>Номенклатура</th><th>Место</th><th class="num">Количество</th><th>Статус</th><th>Действия</th></tr>
+  {% for b in items %}
+  <tr class="clickable" onclick="location='/boxes?q={{ b.id }}'">
+    <td><code>{{ b.code }}</code></td>
+    <td>{{ b.nomenclature.name }}</td>
+    <td>{{ b.location.code if b.location else '—' }}</td>
+    <td class="num"><b>{{ '%g'|format(b.current_qty) }}</b></td>
+    <td>{% if b.is_active %}<span class="badge green">Активна</span>{% else %}<span class="badge gray">Закрыта</span>{% endif %}</td>
+    <td onclick="event.stopPropagation()">
+      <a class="btn btn-sm" href="/boxes?q={{ b.id }}">Открыть</a>
+      <a class="btn btn-sm" href="/boxes/{{ b.id }}/qr.png?dl=1">QR⬇</a>
+      {% if user.role=='admin' %}
+      <form class="inline-form" method="post" action="/boxes/{{ b.id }}/delete" onsubmit="return confirm('Закрыть коробку и обнулить остатки?')">
+        <button class="btn btn-sm btn-danger">✕</button></form>
+      {% endif %}
+    </td>
+  </tr>
+  {% else %}<tr><td colspan="6" class="muted center">Коробок нет</td></tr>{% endfor %}
+</table>
+</div>
+
+<div class="modal-backdrop" id="box_modal">
+  <div class="modal">
+    <div class="m-head">Новая коробка<a href="#" onclick="closeBox();return false" style="color:#fff">✕</a></div>
+    <form method="post" action="/boxes/save">
+      <div class="m-body"><table class="form-table">
+        <tr><td class="req">Код коробки</td><td><input type="text" name="code" required placeholder="BOX-0001" style="width:220px"></td></tr>
+        <tr><td class="req">Номенклатура</td><td><select name="nomenclature_id" required>
+          <option value="">— выберите —</option>
+          {% for nom in noms %}<option value="{{ nom.id }}">{{ nom.name }} [{{ nom.sku }}]</option>{% endfor %}
+        </select></td></tr>
+        <tr><td>Место (ячейка)</td><td><select name="location_id"><option value="">— не размещена —</option>
+          {% for c in cells %}<option value="{{ c.id }}">{{ c.code }} · {{ c.name }}</option>{% endfor %}</select></td></tr>
+        <tr><td>Начальное количество</td><td><input type="number" step="any" min="0" name="current_qty" value="0" style="width:120px"></td></tr>
+      </table></div>
+      <div class="m-foot"><button type="button" class="btn" onclick="closeBox()">Отмена</button>
+        <button class="btn btn-success">💾 Создать</button></div>
+    </form>
+  </div>
+</div>
+<script>
+function newBox(){ document.getElementById('box_modal').classList.add('open'); }
+function closeBox(){ document.getElementById('box_modal').classList.remove('open'); }
+</script>
+{% endif %}
+{% endblock %}
+{% block status_right %}Коробок: {{ items|length }}{% endblock %}

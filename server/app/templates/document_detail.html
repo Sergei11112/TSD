@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ doc.number }}{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="/documents">Документы</a> › {{ doc.number }}</div>
+<div class="page-head">
+  <h1>{{ doc_types[doc.type] if doc.type in doc_types else doc.type }}: {{ doc.number }}</h1>
+  {% if doc.status=='posted' %}<span class="badge green">Проведён</span>
+  {% elif doc.status=='cancelled' %}<span class="badge red">Отменён</span>{% endif %}
+  <span style="flex:1"></span>
+  {% if user.role=='admin' and doc.status=='posted' %}
+  <form class="inline-form" method="post" action="/documents/{{ doc.id }}/cancel"
+        onsubmit="return confirm('Отменить документ? Остатки автоматически не восстановятся (2-й этап).')">
+    <button class="btn btn-danger">⛔ Отменить документ</button></form>
+  {% endif %}
+</div>
+<table class="grid mb" style="width:auto;background:#fff;border:1px solid #d0d0d0">
+  <tr><td class="muted" style="padding:4px 10px">Создан</td><td style="padding:4px 10px">{{ doc.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+      <td class="muted" style="padding:4px 10px">Проведён</td><td style="padding:4px 10px">{{ doc.posted_at.strftime('%d.%m.%Y %H:%M') if doc.posted_at else '—' }}</td></tr>
+  <tr><td class="muted" style="padding:4px 10px">Задание</td>
+      <td colspan="3" style="padding:4px 10px">{% if doc.task %}<a href="/tasks/{{ doc.task_id }}">{{ doc.task.number }}</a>{% else %}—{% endif %}</td></tr>
+</table>
+
+<div class="panel"><div class="panel-head">Движения ТМЦ по документу</div>
+<table class="grid">
+  <tr><th>#</th><th>Номенклатура</th><th>Экземпляр</th><th>Вид</th><th class="num">Кол-во</th>
+      <th>Со склада (место)</th><th>Сотрудник</th></tr>
+  {% for m in moves %}
+  <tr>
+    <td>{{ loop.index }}</td>
+    <td><a href="/nomenclature/{{ m.nomenclature_id }}">{{ m.nomenclature.name if m.nomenclature else '?' }}</a></td>
+    <td>{% if m.asset_instance %}<code>{{ m.asset_instance.serial_number }}</code>{% else %}—{% endif %}</td>
+    <td>{% if m.movement_type=='ISSUE' %}<span class="badge orange">Выдача</span>
+        {% elif m.movement_type=='RETURN' %}<span class="badge green">Возврат</span>
+        {% elif m.movement_type=='WRITEOFF' %}<span class="badge red">Списание</span>
+        {% else %}<span class="badge blue">Перемещение</span>{% endif %}</td>
+    <td class="num">{{ '%g'|format(m.qty) }}</td>
+    <td>{{ m.location.code if m.location else '—' }}</td>
+    <td>{{ m.employee.full_name if m.employee else '—' }}</td>
+  </tr>
+  {% else %}<tr><td colspan="7" class="muted center">Нет движений</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ app_title }}{% endblock %}</title>
+<link rel="stylesheet" href="/static/wms.css">
+{% block head %}{% endblock %}
+</head>
+<body>
+<div class="topbar">
+  <span class="logo">📦 {{ app_title }}</span>
+  <span class="spacer"></span>
+  {% if user %}
+    <span class="user">{{ user.full_name or user.username }}
+      ({{ {'admin':'Администратор','controller':'Контролёр','worker':'Складской рабочий'}[user.role] }})</span>
+    <a href="/logout">Выход</a>
+  {% endif %}
+</div>
+{% if user %}
+<nav class="sidebar">
+  <div class="section">Разделы</div>
+  <a class="nav-item {% if active=='dashboard' %}active{% endif %}" href="/">📊 Панель</a>
+  <div class="section">Справочники</div>
+  <a class="nav-item {% if active=='nomenclature' %}active{% endif %}" href="/nomenclature">Номенклатура</a>
+  <a class="nav-item {% if active=='locations' %}active{% endif %}" href="/locations">Места хранения</a>
+  <a class="nav-item {% if active=='boxes' %}active{% endif %}" href="/boxes">Коробки</a>
+  <a class="nav-item {% if active=='employees' %}active{% endif %}" href="/employees">Сотрудники</a>
+  <a class="nav-item {% if active=='units' %}active{% endif %}" href="/units">Единицы измерения</a>
+  <div class="section">Оперативность</div>
+  <a class="nav-item {% if active=='stock' %}active{% endif %}" href="/stock">Остатки</a>
+  <a class="nav-item {% if active=='tasks' %}active{% endif %}" href="/tasks">Задания</a>
+  <a class="nav-item {% if active=='documents' %}active{% endif %}" href="/documents">Документы</a>
+  <div class="section">Аналитика</div>
+  <a class="nav-item {% if active=='reports' %}active{% endif %}" href="/reports">Отчёты</a>
+</nav>
+{% endif %}
+<main class="main" {% if not user %}style="margin-left:0"{% endif %}>
+{% block content %}{% endblock %}
+</main>
+<div class="statusbar">
+  <span>WMS v0.1.0</span>
+  <span>Сервер: локальная сеть / Wi-Fi</span>
+  <span style="margin-left:auto">{% block status_right %}Готов{% endblock %}</span>
+</div>
+{% block scripts %}{% endblock %}
+</body>
+</html>

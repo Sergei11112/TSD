@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Единицы измерения — {{ app_title }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Единицы измерения</h1>
+</div>
+
+<div class="panel">
+  <div class="panel-header">Новая единица измерения</div>
+  <div class="panel-body">
+    <form method="post" action="/units/save" class="inline-form">
+      <label>Код <input name="code" maxlength="10" required placeholder="шт"></label>
+      <label>Наименование <input name="name" maxlength="50" required placeholder="Штука"></label>
+      <button type="submit" class="btn btn-primary">Добавить</button>
+    </form>
+    {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">Список единиц измерения ({{ items|length }})</div>
+  <table class="data-table">
+    <thead><tr><th>Код</th><th>Наименование</th><th>Используется в номенклатуре</th><th style="width:90px">Действия</th></tr></thead>
+    <tbody>
+    {% for u in items %}
+      <tr>
+        <td><b>{{ u.code }}</b></td>
+        <td>{{ u.name }}</td>
+        <td>{{ counts.get(u.id, 0) }}</td>
+        <td>
+          {% if counts.get(u.id, 0) == 0 %}
+          <form method="post" action="/units/{{ u.id }}/delete" onsubmit="return confirm('Удалить единицу «{{ u.name }}»?');" style="display:inline">
+            <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
+          </form>
+          {% else %}<span class="muted">занята</span>{% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="empty">Нет данных</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

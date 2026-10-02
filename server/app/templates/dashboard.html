@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h1>Панель контролёра</h1></div>
+<div class="stat-grid mb">
+  <div class="stat-card"><div class="v">{{ stats.nomenclature }}</div><div class="t">Номенклатура</div></div>
+  <div class="stat-card"><div class="v">{{ stats.locations }}</div><div class="t">Места хранения</div></div>
+  <div class="stat-card"><div class="v">{{ stats.boxes }}</div><div class="t">Коробки</div></div>
+  <div class="stat-card"><div class="v">{{ stats.tasks_open }}</div><div class="t">Открытые задания</div></div>
+  <div class="stat-card"><div class="v">{{ stats.docs }}</div><div class="t">Проведено документов</div></div>
+  <div class="stat-card"><div class="v">{{ stats.employees }}</div><div class="t">Сотрудники</div></div>
+</div>
+<table width="100%" cellspacing="0"><tr valign="top">
+<td width="50%" style="padding-right:8px">
+  <div class="panel">
+    <div class="panel-head">Последние документы</div>
+    <table class="grid"><tr><th>Номер</th><th>Тип</th><th>Статус</th><th>Дата</th></tr>
+    {% for d in recent_docs %}
+      <tr class="clickable" onclick="location='/documents/{{d.id}}'">
+        <td>{{ d.number }}</td><td>{{ d.type }}</td>
+        <td>{% if d.status=='posted' %}<span class="badge green">Проведён</span>{% elif d.status=='cancelled' %}<span class="badge red">Отменён</span>{% else %}<span class="badge gray">Черновик</span>{% endif %}</td>
+        <td>{{ d.posted_at.strftime('%d.%m.%Y %H:%M') if d.posted_at else '' }}</td></tr>
+    {% else %}<tr><td colspan="4" class="muted center">Нет данных</td></tr>{% endfor %}
+    </table>
+  </div>
+</td>
+<td width="50%">
+  <div class="panel">
+    <div class="panel-head">Последние задания</div>
+    <table class="grid"><tr><th>Номер</th><th>Статус</th><th>Сотрудник</th><th>Создан</th></tr>
+    {% for t in recent_tasks %}
+      <tr class="clickable" onclick="location='/tasks/{{t.id}}'">
+        <td>{{ t.number }}</td>
+        <td>{% if t.status=='completed' %}<span class="badge green">Выполнено</span>{% elif t.status=='sent' %}<span class="badge blue">Отправлено</span>{% elif t.status=='in_progress' %}<span class="badge orange">В работе</span>{% elif t.status=='cancelled' %}<span class="badge red">Отменено</span>{% else %}<span class="badge gray">Черновик</span>{% endif %}</td>
+        <td>{{ t.employee.full_name if t.employee else '—' }}</td>
+        <td>{{ t.created_at.strftime('%d.%m.%Y %H:%M') }}</td></tr>
+    {% else %}<tr><td colspan="4" class="muted center">Нет данных</td></tr>{% endfor %}
+    </table>
+  </div>
+</td></tr></table>
+{% endblock %}

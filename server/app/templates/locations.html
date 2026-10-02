@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Места хранения — {{ app_title }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Справочник «Места хранения»</h1></div>
+{% if request.query_params.get('error') %}<div class="flash err">⛔ {{ request.query_params.get('error') }}</div>{% endif %}
+<div style="display:flex;gap:12px;align-items:flex-start">
+
+  <div class="panel" style="width:340px;flex-shrink:0">
+    <div class="panel-head">Иерархия (дерево)</div>
+    <div class="tree" style="padding:8px">
+      {% macro node(l) %}
+      <li>
+        {% set kids = by_parent.get(l.id, []) %}
+        <span class="tw">{% if kids %}▾{% else %}·{% endif %}</span>
+        <a class="node {% if selected and selected.id==l.id %}selected{% endif %}"
+           href="/locations?sel={{ l.id }}">
+          {% if l.type=='warehouse' %}🏭{% elif l.type=='rack' %}🗄{% elif l.type=='shelf' %}📐{% else %}📦{% endif %}
+          {{ l.code }}{% if not l.is_active %} <span class="badge gray">неакт.</span>{% endif %}
+        </a>
+        {% if kids %}<ul>{% for ch in kids %}{{ node(ch) }}{% endfor %}</ul>{% endif %}
+      </li>
+      {% endmacro %}
+      <ul>{% for r in roots %}{{ node(r) }}{% else %}<li class="muted">Нет ни одного склада</li>{% endfor %}</ul>
+    </div>
+    <div style="border-top:1px solid #d0d0d0;padding:8px;display:flex;gap:6px">
+      <button class="btn btn-primary btn-sm" onclick="openLoc()">➕ Создать место</button>
+      {% if selected %}
+      <button class="btn btn-sm" onclick="openLoc({{ selected.id }}, '{{ selected.code }}', '{{ selected.name }}', '{{ selected.type }}', {{ selected.parent_id or 'null' }})">✏ Изменить</button>
+      {% endif %}
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:0">
+    {% if selected %}
+    <div class="breadcrumb">{{ path }}</div>
+    <div class="page-head">
+      <h1>{{ selected.name }}</h1>
+      <span class="badge blue">{{ loc_types[selected.type] }}</span>
+      <code>{{ selected.qr_code }}</code>
+      <span style="flex:1"></span>
+      <img src="/locations/{{ selected.id }}/qr.png" width="72" height="72" class="qr-img" alt="QR">
+      <a class="btn btn-sm" href="/locations/{{ selected.id }}/qr.png?dl=1">QR ⬇</a>
+      {% if user.role=='admin' %}
+      <form class="inline-form" method="post" action="/locations/{{ selected.id }}/delete" onsubmit="return confirm('Удалить/деактивировать место?')">
+        <button class="btn btn-sm btn-danger">🗑 Удалить</button>
+      </form>
+      {% endif %}
+    </div>
+
+    <div class="panel"><div class="panel-head">Остатки в этом месте (с учётом вложенных)</div>
+      <table class="grid">
+        <tr><th>Номенклатура</th><th>Где</th><th class="num">Кол-во</th><th class="num">Резерв</th></tr>
+        {% for s, nom, loc in stock_rows %}
+        <tr class="clickable" onclick="location='/nomenclature/{{ nom.id }}?tab=stock'">
+          <td>{{ nom.name }}</td><td>{{ loc.code }}</td>
+          <td class="num">{{ '%g'|format(s.qty_stock) }}</td><td class="num">{{ '%g'|format(s.qty_reserved) }}</td>
+        </tr>
+        {% else %}<tr><td colspan="4" class="muted center">Пусто</td></tr>{% endfor %}
+      </table>
+    </div>
+
+    <div class="panel"><div class="panel-head">Коробки</div>
+      <table class="grid">
+        <tr><th>Код</th><th>Номенклатура</th><th class="num">Количество</th><th></th></tr>
+        {% for b, nom in boxes_list %}
+        <tr><td><code>{{ b.code }}</code></td><td>{{ nom.name }}</td>
+            <td class="num">{{ '%g'|format(b.current_qty) }}</td>
+            <td><a class="btn btn-sm" href="/boxes?q={{ b.id }}">Открыть</a></td></tr>
+        {% else %}<tr><td colspan="4" class="muted center">Коробок нет</td></tr>{% endfor %}
+      </table>
+    </div>
+
+    <div class="panel"><div class="panel-head">Оборудование в местах</div>
+      <table class="grid">
+        <tr><th>Серийный №</th><th>Номенклатура</th><th>Статус</th></tr>
+        {% for a, nom in assets %}
+        <tr><td><code>{{ a.serial_number }}</code></td><td>{{ nom.name }}</td><td>{{ a.status }}</td></tr>
+        {% else %}<tr><td colspan="3" class="muted center">Нет</td></tr>{% endfor %}
+      </table>
+    </div>
+    {% else %}<div class="panel"><div class="muted" style="padding:20px">Выберите место в дереве слева</div></div>{% endif %}
+  </div>
+</div>
+
+<!-- модальное окно создания/редактирования -->
+<div class="modal-backdrop" id="loc_modal">
+  <div class="modal">
+    <div class="m-head"><span id="loc_title">Новое место хранения</span><a href="#" onclick="closeLoc();return false" style="color:#fff">✕</a></div>
+    <form method="post" action="/locations/save">
+      <div class="m-body">
+        <input type="hidden" name="id" id="loc_id">
+        <table class="form-table">
+          <tr><td class="req">Код</td><td><input type="text" name="code" id="loc_code" required style="width:240px"></td></tr>
+          <tr><td class="req">Наименование</td><td><input type="text" name="name" id="loc_name" required style="width:340px"></td></tr>
+          <tr><td>Тип</td><td><select name="type" id="loc_type">
+            <option value="warehouse">Склад</option><option value="rack">Стеллаж</option>
+            <option value="shelf">Полка</option><option value="cell">Ячейка</option></select></td></tr>
+          <tr><td>Родитель</td><td><select name="parent_id" id="loc_parent">
+            <option value="">— вершина (склад) —</option>
+            {% for l in all_locs %}<option value="{{ l.id }}">{{ l.code }} · {{ loc_types[l.type] }}</option>{% endfor %}
+          </select></td></tr>
+        </table>
+      </div>
+      <div class="m-foot">
+        <button type="button" class="btn" onclick="closeLoc()">Отмена</button>
+        <button class="btn btn-success">💾 Записать</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+function openLoc(id, code, name, type, parent){
+  document.getElementById('loc_modal').classList.add('open');
+  document.getElementById('loc_title').textContent = id ? 'Место: '+code : 'Новое место хранения';
+  document.getElementById('loc_id').value = id || '';
+  document.getElementById('loc_code').value = code || '';
+  document.getElementById('loc_name').value = name || '';
+  document.getElementById('loc_type').value = type || 'cell';
+  document.getElementById('loc_parent').value = parent === null || parent===undefined ? '' : parent;
+}
+function closeLoc(){ document.getElementById('loc_modal').classList.remove('open'); }
+</script>
+{% endblock %}
+{% block status_right %}Мест хранения: {{ all_locs|length }}{% endblock %}
