@@ -26,6 +26,9 @@ async def scan_error_handler(request: Request, exc: ScanError):
 app.include_router(web.router)
 app.include_router(terminal.router)
 
+
+
+
 from .api import dicts, storage, ops  # noqa: E402
 
 app.include_router(dicts.router)
