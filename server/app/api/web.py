@@ -2,7 +2,7 @@
 import os
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -13,7 +13,14 @@ from ..config import SESSION_COOKIE_NAME, SESSION_MAX_AGE, APP_TITLE
 
 router = APIRouter(tags=["web"])
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates")
+STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
+
+@router.get("/terminal", include_in_schema=False)
+def terminal_page():
+    """Экран ТСД (тонкий клиент): WebView-обёртка открывает этот адрес."""
+    return FileResponse(os.path.join(STATIC_DIR, "terminal.html"))
 
 
 def redir_login():
