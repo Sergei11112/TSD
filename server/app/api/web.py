@@ -45,7 +45,7 @@ def require_role(request: Request, db: Session, roles=("admin", "controller")):
 
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, error: str = ""):
-    return templates.TemplateResponse("login.html", {"request": request, "error": error,
+    return templates.TemplateResponse(request, "login.html", {"error": error,
                                                      "app_title": APP_TITLE})
 
 
@@ -83,7 +83,6 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     }
     recent_docs = db.query(Document).order_by(Document.created_at.desc()).limit(10).all()
     recent_tasks = db.query(Task).order_by(Task.created_at.desc()).limit(10).all()
-    return templates.TemplateResponse("dashboard.html",
-                                      {"request": request, "user": u, "stats": stats,
+    return templates.TemplateResponse(request, "dashboard.html", {"user": u, "stats": stats,
                                        "recent_docs": recent_docs, "recent_tasks": recent_tasks,
                                        "app_title": APP_TITLE, "active": "dashboard"})
