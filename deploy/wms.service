@@ -1,0 +1,22 @@
+[Unit]
+Description=WMS сервер (FastAPI + Uvicorn)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wms
+Group=wms
+WorkingDirectory=/opt/wms/server
+EnvironmentFile=/etc/wms/wms.env
+ExecStart=/opt/wms/venv/bin/python run.py
+Restart=always
+RestartSec=3
+
+# Безопасность
+NoNewPrivileges=true
+PrivateTmp=true
+ReadWritePaths=/opt/wms/server/data
+
+[Install]
+WantedBy=multi-user.target
