@@ -1,14 +1,2 @@
-# Python
-venv/
-.venv/
-__pycache__/
-*.pyc
-
-# Database files
-*.db
-server/data/*.db
-server/data/*.log
-
-# OS / IDE
-.DS_Store
-*.lnk
+# Compressed files
+*.zip
