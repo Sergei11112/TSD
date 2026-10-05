@@ -68,3 +68,4 @@ Wi-Fi IP: `http://IP-МАКА:8000`.
 | `WMS_DATABASE_URL` | `postgresql+psycopg2://user:pass@host:5432/wms` | SQLite в `server/data/wms.db` |
 | `WMS_SECRET_KEY` | подпись cookie-сессий (hex) | demo — заменить! |
 | `WMS_HOST` / `WMS_PORT` | адрес прослушивания | `0.0.0.0` / `8000` |
+=== trigger comment ===
